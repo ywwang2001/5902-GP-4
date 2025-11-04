@@ -1,0 +1,188 @@
+---
+title: "Data Science Consulting:  Midterm Team Project -- Part 1"
+author: "Clara Dragut, Yuwen Wang, Ziyao Wang"
+date: "Nov 2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+set.seed(72)
+knitr::opts_chunk$set(echo = TRUE, comment="", warning = FALSE, message = FALSE, tidy.opts=list(width.cutoff=55))
+```
+
+```{r libraries, echo = FALSE}
+library(data.table)
+library(here)
+library(knitr)
+library(rmarkdown)
+```
+
+```{r source_files}
+# (Optional) source helper files later if needed
+# source(here::here("R", "utils.R"))
+```
+
+```{r functions}
+# (placeholder for helper functions)
+```
+
+```{r load_data}
+train_path <- here::here("data", "MNIST-fashion training set-49.csv")
+test_path  <- here::here("data", "MNIST-fashion testing set-49.csv")
+
+train_raw <- data.table::fread(train_path)
+test_raw  <- data.table::fread(test_path)
+```
+
+```{r clean_data}
+# (placeholder for cleaning code)
+```
+
+```{r generate_samples}
+# (placeholder for sample-generation / splits)
+```
+
+
+
+
+## Introduction {.tabset}
+
+
+### Model 1
+
+
+
+```{r code_model1_development, eval = TRUE}
+
+```
+
+```{r load_model1}
+
+```
+
+### Model 2
+
+
+```{r code_model2_development, eval = TRUE}
+
+```
+
+```{r load_model2}
+
+```
+
+### Model 3
+
+
+```{r code_model3_development, eval = TRUE}
+
+```
+
+```{r load_model3}
+
+```
+
+### Model 4
+
+
+```{r code_model4_development, eval = TRUE}
+
+```
+
+```{r load_model4}
+
+```
+
+### Model 5
+
+
+```{r code_model5_development, eval = TRUE}
+
+```
+
+```{r load_model5}
+
+```
+
+### Model 6
+
+
+```{r code_model6_development, eval = TRUE}
+
+```
+
+```{r load_model6}
+
+```
+
+### Model 7
+
+
+```{r code_model7_development, eval = TRUE}
+
+```
+
+```{r load_model7}
+
+```
+
+### Model 8
+
+
+```{r code_model8_development, eval = TRUE}
+
+```
+
+```{r load_model8}
+
+```
+
+### Model 9
+
+
+```{r code_model9_development, eval = TRUE}
+
+```
+
+```{r load_model9}
+
+```
+
+### Model 10
+
+
+```{r code_model10_development, eval = TRUE}
+
+```
+
+```{r load_model10}
+
+```
+
+## Scoreboard
+
+```{r scoreboard}
+
+```
+
+## Discussion
+
+
+## Model Development Responsibilities
+
+For the 10 models, please list the names of the developers along with percentages for how the responsibilities were divided.
+
+1.  
+2. 
+3. 
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+
+## References
+
+
