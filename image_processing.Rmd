@@ -25,15 +25,7 @@ library(randomForest)
 ```
 
 ```{r functions}
-score_model <- function(model, train_subset, test_raw, time_sec) {
-  A <- nrow(train_subset) / 60000
-  B <- min(1, time_sec / 60)
-  px_cols <- paste0("pixel", 1:49)
-  preds <- predict(model, newdata = test_raw[, ..px_cols])
-  C <- mean(preds != test_raw$label)
-  Points <- 0.15 * A + 0.10 * B + 0.75 * C
-  list(A = A, B = B, C = C, Points = Points)
-}
+
 
 
 ```
@@ -101,26 +93,116 @@ image(t(apply(mat, 2, rev)), col = gray.colors(256),
 
 ```
 
-### Model 4
 
-
+### Model 4 - Random Forest
 ```{r code_model4_development, eval = TRUE}
+# pixel columns
+px_cols <- paste0("pixel", 1:49)
+
+# ensure label is factor
+train_raw[, label := as.factor(label)]
+test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+
+# record time (train + predict)
+t0 <- proc.time()
+
+# light hyperparameter tuning (keep simple)
+# try a slightly larger mtry and slightly fewer trees to balance accuracy + time
+best_ntree <- 150
+best_mtry  <- 9
 
 ```
 
 ```{r load_model4}
+# fit model
+rf_model <- randomForest(
+  x = train_raw[, ..px_cols],
+  y = train_raw$label,
+  ntree = best_ntree,
+  mtry  = best_mtry
+)
 
+# predict
+rf_pred <- predict(rf_model, newdata = test_raw[, ..px_cols])
+
+# total elapsed seconds
+time_sec <- (proc.time() - t0)[["elapsed"]]
+
+# scoring components
+A <- nrow(train_raw) / 60000
+B <- min(1, time_sec / 60)
+C <- mean(rf_pred != test_raw$label)
+Points <- 0.15*A + 0.10*B + 0.75*C
+
+# show results
+list(
+  ntree = best_ntree,
+  mtry  = best_mtry,
+  A = A,
+  B = B,
+  C = C,
+  Points = Points,
+  time_sec = time_sec
+)
 ```
 
-### Model 5
 
+### Model 5 - Elastic Net
 
 ```{r code_model5_development, eval = TRUE}
+library(glmnet)
+library(data.table)
 
+# pixel columns
+px_cols <- paste0("pixel", 1:49)
+
+# ensure label is factor
+train_raw[, label := as.factor(label)]
+test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+
+# convert to model matrices for glmnet
+x_train <- as.matrix(train_raw[, ..px_cols])
+y_train <- train_raw$label
+x_test  <- as.matrix(test_raw[, ..px_cols])
+y_test  <- test_raw$label
+
+# record time (train + predict)
+t0 <- proc.time()
+
+# light hyperparameter tuning
+alpha_val <- 0.3     # elastic net mixing
 ```
 
 ```{r load_model5}
+# fit model
+fit <- glmnet(
+  x = x_train,
+  y = y_train,
+  alpha = alpha_val,
+  family = "multinomial"
+)
 
+# predict class labels
+preds <- predict(fit, newx = x_test, s = fit$lambda.min, type = "class")
+
+# total elapsed seconds
+time_sec <- (proc.time() - t0)[["elapsed"]]
+
+# scoring components
+A <- nrow(train_raw) / 60000
+B <- min(1, time_sec / 60)
+C <- mean(preds != y_test)
+Points <- 0.15*A + 0.10*B + 0.75*C
+
+# show results
+list(
+  alpha = alpha_val,
+  A = A,
+  B = B,
+  C = C,
+  Points = Points,
+  time_sec = time_sec
+)
 ```
 
 ### Model 6
@@ -194,8 +276,8 @@ For the 10 models, please list the names of the developers along with percentage
 1.  
 2. 
 3. 
-4.
-5.
+4. Yuwen Wang
+5. Yuwen Wang
 6.
 7.
 8.
