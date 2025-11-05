@@ -231,39 +231,157 @@ list(
 
 
 ```{r code_model8_development, eval = TRUE}
+library(gbm)
+
+px_cols <- paste0("pixel", 1:49)
+
+train_raw[, label := as.factor(label)]
+test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+
+lbl_levels <- levels(train_raw$label)
+y_train_num <- as.integer(train_raw$label) - 1L
+
+gbm_params <- list(
+  n.trees = 500,
+  interaction.depth = 3,
+  shrinkage = 0.05,
+  n.minobsinnode = 10,
+  bag.fraction = 0.8
+)
+
+t0 <- proc.time()
 
 ```
 
 ```{r load_model8}
+gbm_fit <- gbm::gbm(
+  formula = y_train_num ~ .,
+  data    = data.frame(y_train_num = y_train_num, train_raw[, ..px_cols]),
+  distribution = "multinomial",
+  n.trees = gbm_params$n.trees,
+  interaction.depth = gbm_params$interaction.depth,
+  shrinkage = gbm_params$shrinkage,
+  n.minobsinnode = gbm_params$n.minobsinnode,
+  bag.fraction = gbm_params$bag.fraction,
+  train.fraction = 1.0,
+  verbose = FALSE
+)
 
+# predict probs -> class
+pred_prob <- predict(
+  gbm_fit,
+  newdata = as.data.frame(test_raw[, ..px_cols]),
+  n.trees = gbm_params$n.trees,
+  type = "response"
+)
+prob_mat <- matrix(pred_prob, nrow = nrow(test_raw), ncol = length(lbl_levels))
+pred_idx <- max.col(prob_mat, ties.method = "first")
+pred_m8 <- factor(lbl_levels[pred_idx], levels = lbl_levels)
+
+time_sec <- (proc.time() - t0)[["elapsed"]]
+A <- nrow(train_raw) / 60000
+B <- min(1, time_sec / 60)
+C <- mean(pred_m8 != test_raw$label)
+Points <- 0.15*A + 0.10*B + 0.75*C
+
+res_m8 <- list(Model = "M8_gbm", A=A, B=B, C=C, Points=Points, time_sec=time_sec)
+
+res_m8
 ```
 
 ### Model 9
 
 
 ```{r code_model9_development, eval = TRUE}
+px_cols <- paste0("pixel", 1:49)
 
+train_raw[, label := as.factor(label)]
+test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+
+x_train_df <- as.data.frame(train_raw[, ..px_cols])
+x_test_df  <- as.data.frame(test_raw[, ..px_cols])
+y_train    <- train_raw$label
+y_test     <- test_raw$label
+
+svm_cost  <- 1
+svm_gamma <- 1/49
+
+t0 <- proc.time()
 ```
 
 ```{r load_model9}
+install.packages("e1071")
 
+svm_mod <- e1071::svm(
+  x = x_train_df, y = y_train,
+  kernel = "radial",
+  cost = svm_cost,
+  gamma = svm_gamma,
+  scale = TRUE
+)
+pred_m9 <- predict(svm_mod, newdata = x_test_df)
+
+time_sec <- (proc.time() - t0)[["elapsed"]]
+A <- nrow(train_raw) / 60000
+B <- min(1, time_sec / 60)
+C <- mean(pred_m9 != y_test)
+Points <- 0.15*A + 0.10*B + 0.75*C
+
+res_m9 <- list(Model = "M9_svm_rbf", A=A, B=B, C=C, Points=Points, time_sec=time_sec)
+
+res_m9
 ```
 
 ### Model 10
 
 
 ```{r code_model10_development, eval = TRUE}
+px_cols <- paste0("pixel", 1:49)
 
+train_raw[, label := as.factor(label)]
+test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+
+x_train_df <- as.data.frame(train_raw[, ..px_cols])
+x_test_df  <- as.data.frame(test_raw[, ..px_cols])
+y_train    <- train_raw$label
+y_test     <- test_raw$label
+
+t0 <- proc.time()
 ```
 
 ```{r load_model10}
+nb_mod <- e1071::naiveBayes(x = x_train_df, y = y_train)
+pred_m10 <- predict(nb_mod, newdata = x_test_df)
 
+time_sec <- (proc.time() - t0)[["elapsed"]]
+A <- nrow(train_raw) / 60000
+B <- min(1, time_sec / 60)
+C <- mean(pred_m10 != y_test)
+Points <- 0.15*A + 0.10*B + 0.75*C
+
+res_m10 <- list(Model = "M10_naive_bayes", A=A, B=B, C=C, Points=Points, time_sec=time_sec)
+
+res_m10
 ```
 
 ## Scoreboard
 
 ```{r scoreboard}
+library(data.table)
 
+res_names <- ls(pattern = "^res_m\\d+$")
+res_list <- lapply(res_names, function(n) {
+  if (exists(n)) get(n) else NULL
+})
+results <- Filter(Negate(is.null), res_list)
+
+if (length(results) == 0) {
+  cat("No model summaries found. Knit the model chunks first.")
+} else {
+  dt <- rbindlist(lapply(results, as.data.table), fill = TRUE)
+  setorder(dt, Points)
+  knitr::kable(dt, digits = 4, caption = "Scoreboard")
+}
 ```
 
 ## Discussion
@@ -280,9 +398,9 @@ For the 10 models, please list the names of the developers along with percentage
 5. Yuwen Wang
 6.
 7.
-8.
-9.
-10.
+8. Clara Dragut
+9. Clara Dragut
+10. Clara Dragut
 
 ## References
 
