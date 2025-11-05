@@ -15,15 +15,27 @@ library(data.table)
 library(here)
 library(knitr)
 library(rmarkdown)
+
+# ML models
+library(randomForest)
 ```
 
 ```{r source_files}
-# (Optional) source helper files later if needed
-# source(here::here("R", "utils.R"))
+
 ```
 
 ```{r functions}
-# (placeholder for helper functions)
+score_model <- function(model, train_subset, test_raw, time_sec) {
+  A <- nrow(train_subset) / 60000
+  B <- min(1, time_sec / 60)
+  px_cols <- paste0("pixel", 1:49)
+  preds <- predict(model, newdata = test_raw[, ..px_cols])
+  C <- mean(preds != test_raw$label)
+  Points <- 0.15 * A + 0.10 * B + 0.75 * C
+  list(A = A, B = B, C = C, Points = Points)
+}
+
+
 ```
 
 ```{r load_data}
@@ -35,21 +47,28 @@ test_raw  <- data.table::fread(test_path)
 ```
 
 ```{r clean_data}
-# (placeholder for cleaning code)
+
 ```
 
 ```{r generate_samples}
-# (placeholder for sample-generation / splits)
+# pick an index to visualize
+i <- 1
+
+# extract pixel values (drop the text label)
+px <- as.numeric(train_raw[i, -1])
+
+# convert to 7×7 matrix
+mat <- matrix(px, nrow = 7, ncol = 7, byrow = TRUE)
+
+# plot
+image(t(apply(mat, 2, rev)), col = gray.colors(256),
+      main = train_raw$label[i], axes = FALSE)
 ```
-
-
-
 
 ## Introduction {.tabset}
 
 
 ### Model 1
-
 
 
 ```{r code_model1_development, eval = TRUE}
