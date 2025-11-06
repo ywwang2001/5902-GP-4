@@ -3009,10 +3009,10 @@ for(n in n.values){
 res_m1</code></pre>
 <pre><code>         Model Summary SampleSize  Iter       Data          A          B      C
         &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;      &lt;num&gt;  &lt;num&gt;
-1: M1_multinom    best       2000     3 dat_2000_3 0.03333333 0.01328969 0.2528
-     Points  time_sec
-      &lt;num&gt;     &lt;num&gt;
-1: 0.195929 0.7973814</code></pre>
+1: M1_multinom    best       2000     3 dat_2000_3 0.03333333 0.01306807 0.2528
+      Points  time_sec
+       &lt;num&gt;     &lt;num&gt;
+1: 0.1959068 0.7840841</code></pre>
 </div>
 <div id="model-2-k-nearest-neighbors-k3" class="section level3">
 <h3>Model 2 — k-Nearest Neighbors (k=3)</h3>
@@ -3068,10 +3068,10 @@ for(n in n.values){
 res_m2</code></pre>
 <pre><code>     Model Summary SampleSize  Iter       Data          A          B      C
     &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;      &lt;num&gt;  &lt;num&gt;
-1: M2_knn3    best       2000     1 dat_2000_1 0.03333333 0.01049284 0.2207
-      Points  time_sec
-       &lt;num&gt;     &lt;num&gt;
-1: 0.1715743 0.6295705</code></pre>
+1: M2_knn3    best       2000     1 dat_2000_1 0.03333333 0.01044037 0.2207
+     Points  time_sec
+      &lt;num&gt;     &lt;num&gt;
+1: 0.171569 0.6264222</code></pre>
 </div>
 <div id="model-3-decision-tree-rpart" class="section level3">
 <h3>Model 3 — Decision Tree (rpart)</h3>
@@ -3119,10 +3119,10 @@ for(n in n.values){
 res_m3</code></pre>
 <pre><code>      Model Summary SampleSize  Iter       Data          A           B      C
      &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;       &lt;num&gt;  &lt;num&gt;
-1: M3_rpart    best       2000     2 dat_2000_2 0.03333333 0.005642009 0.2871
-      Points  time_sec
-       &lt;num&gt;     &lt;num&gt;
-1: 0.2208892 0.3385205</code></pre>
+1: M3_rpart    best       2000     2 dat_2000_2 0.03333333 0.005740118 0.2871
+     Points  time_sec
+      &lt;num&gt;     &lt;num&gt;
+1: 0.220899 0.3444071</code></pre>
 </div>
 <div id="model-4-random-forest" class="section level3">
 <h3>Model 4 — Random Forest</h3>
@@ -3181,10 +3181,10 @@ results_model4 &lt;- data.table::rbindlist(results_model4)</code></pre>
 res_m4</code></pre>
 <pre><code>             Model Summary SampleSize  Iter       Data          A          B
             &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;      &lt;num&gt;
-1: M4_randomForest    best       2000     2 dat_2000_2 0.03333333 0.01103333
+1: M4_randomForest    best       2000     2 dat_2000_2 0.03333333 0.01128333
         C    Points time_sec
     &lt;num&gt;     &lt;num&gt;    &lt;num&gt;
-1: 0.1933 0.1510783    0.662</code></pre>
+1: 0.1933 0.1511033    0.677</code></pre>
 </div>
 <div id="model-5-elastic-net" class="section level3">
 <h3>Model 5 — Elastic Net</h3>
@@ -3242,10 +3242,10 @@ results_model5 &lt;- data.table::rbindlist(results_model5)</code></pre>
 res_m5</code></pre>
 <pre><code>           Model Summary SampleSize  Iter       Data          A          B
           &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;      &lt;num&gt;
-1: M5_elasticNet    best       2000     3 dat_2000_3 0.03333333 0.02506667
+1: M5_elasticNet    best       2000     3 dat_2000_3 0.03333333 0.02661667
         C    Points time_sec
     &lt;num&gt;     &lt;num&gt;    &lt;num&gt;
-1: 0.2124 0.1668067    1.504</code></pre>
+1: 0.2124 0.1669617    1.597</code></pre>
 </div>
 <div id="model-6-neural-network-nnet" class="section level3">
 <h3>Model 6 — Neural Network (nnet)</h3>
@@ -3316,12 +3316,12 @@ for (n in n.values) {
 results_model6 &lt;- data.table::rbindlist(results_model6)</code></pre>
 <pre class="r"><code>res_m6 &lt;- summarize_results_df(results_model6, &quot;M6_nnet&quot;, &quot;best&quot;)
 res_m6</code></pre>
-<pre><code>     Model Summary SampleSize  Iter      Data           A       B      C
-    &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;    &lt;char&gt;       &lt;num&gt;   &lt;num&gt;  &lt;num&gt;
-1: M6_nnet    best        500     2 dat_500_2 0.008333333 0.00895 0.2546
-     Points time_sec
-      &lt;num&gt;    &lt;num&gt;
-1: 0.193095    0.537</code></pre>
+<pre><code>     Model Summary SampleSize  Iter      Data           A           B      C
+    &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;    &lt;char&gt;       &lt;num&gt;       &lt;num&gt;  &lt;num&gt;
+1: M6_nnet    best        500     2 dat_500_2 0.008333333 0.009016667 0.2546
+      Points time_sec
+       &lt;num&gt;    &lt;num&gt;
+1: 0.1931017    0.541</code></pre>
 </div>
 <div id="model-7-xgboost" class="section level3">
 <h3>Model 7 — XGBoost</h3>
@@ -3410,12 +3410,12 @@ for (n in n.values) {
 results_model7 &lt;- data.table::rbindlist(results_model7)</code></pre>
 <pre class="r"><code>res_m7 &lt;- summarize_results_df(results_model7, &quot;M7_xgboost&quot;, &quot;best&quot;)
 res_m7</code></pre>
-<pre><code>        Model Summary SampleSize  Iter       Data          A       B      C
-       &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;   &lt;num&gt;  &lt;num&gt;
-1: M7_xgboost    best       2000     1 dat_2000_1 0.03333333 0.02585 0.1884
-     Points time_sec
-      &lt;num&gt;    &lt;num&gt;
-1: 0.148885    1.551</code></pre>
+<pre><code>        Model Summary SampleSize  Iter       Data          A      B      C
+       &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;  &lt;num&gt;  &lt;num&gt;
+1: M7_xgboost    best       2000     1 dat_2000_1 0.03333333 0.0231 0.1884
+    Points time_sec
+     &lt;num&gt;    &lt;num&gt;
+1: 0.14861    1.386</code></pre>
 </div>
 <div id="model-8-gradient-boosting-gbm" class="section level3">
 <h3>Model 8 — Gradient Boosting (gbm)</h3>
@@ -3512,10 +3512,10 @@ results_model8 &lt;- data.table::rbindlist(results_model8)</code></pre>
 res_m8</code></pre>
 <pre><code>    Model Summary SampleSize  Iter       Data          A         B      C
    &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;     &lt;num&gt;  &lt;num&gt;
-1: M8_gbm    best       2000     1 dat_2000_1 0.03333333 0.2291333 0.1889
+1: M8_gbm    best       2000     1 dat_2000_1 0.03333333 0.1845167 0.1889
       Points time_sec
        &lt;num&gt;    &lt;num&gt;
-1: 0.1695883   13.748</code></pre>
+1: 0.1651267   11.071</code></pre>
 </div>
 <div id="model-9-support-vector-machine-rbf" class="section level3">
 <h3>Model 9 — Support Vector Machine (RBF)</h3>
@@ -3581,10 +3581,10 @@ results_model9 &lt;- data.table::rbindlist(results_model9)</code></pre>
 res_m9</code></pre>
 <pre><code>        Model Summary SampleSize  Iter       Data          A          B      C
        &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;     &lt;char&gt;      &lt;num&gt;      &lt;num&gt;  &lt;num&gt;
-1: M9_svm_rbf    best       2000     1 dat_2000_1 0.03333333 0.01488333 0.1992
+1: M9_svm_rbf    best       2000     1 dat_2000_1 0.03333333 0.01523333 0.1992
       Points time_sec
        &lt;num&gt;    &lt;num&gt;
-1: 0.1558883    0.893</code></pre>
+1: 0.1559233    0.914</code></pre>
 </div>
 <div id="model-10-naive-bayes" class="section level3">
 <h3>Model 10 — Naive Bayes</h3>
@@ -3640,10 +3640,10 @@ results_model10 &lt;- data.table::rbindlist(results_model10)</code></pre>
 res_m10</code></pre>
 <pre><code>             Model Summary SampleSize  Iter      Data           A      B     C
             &lt;char&gt;  &lt;char&gt;      &lt;num&gt; &lt;int&gt;    &lt;char&gt;       &lt;num&gt;  &lt;num&gt; &lt;num&gt;
-1: M10_naive_bayes    best        500     2 dat_500_2 0.008333333 0.0676 0.403
+1: M10_naive_bayes    best        500     2 dat_500_2 0.008333333 0.0646 0.403
     Points time_sec
      &lt;num&gt;    &lt;num&gt;
-1: 0.31026    4.056</code></pre>
+1: 0.30996    3.876</code></pre>
 </div>
 </div>
 <div id="preliminary-results-all-90-fits" class="section level2">
@@ -3687,7 +3687,7 @@ if (!length(res_tbls)) {
   )
 }</code></pre>
 <div class="datatables html-widget html-fill-item" id="htmlwidget-428b3c4bb5a5b5af0038" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-428b3c4bb5a5b5af0038">{"x":{"filter":"none","vertical":false,"caption":"<caption>Preliminary Results (all 90 fits: 10 models × 3 sizes × 3 draws)<\/caption>","data":[["Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf"],[500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000],["dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3"],[0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333],[0.067,0.06759999999999999,0.0698,0.06510000000000001,0.06560000000000001,0.0682,0.0655,0.0654,0.06560000000000001,0.0064,0.0063,0.0038,0.0067,0.0065,0.0068,0.0132,0.0155,0.0133,0.0025,0.0026,0.0026,0.0052,0.0052,0.0052,0.0105,0.0104,0.0104,0.0013,0.0013,0.0011,0.0026,0.0028,0.0026,0.0058,0.0056,0.0055,0.0023,0.0023,0.0024,0.0043,0.0042,0.0044,0.008699999999999999,0.011,0.008500000000000001,0.0063,0.0061,0.0061,0.0107,0.0136,0.0118,0.0214,0.021,0.0251,0.008800000000000001,0.0089,0.008999999999999999,0.0143,0.0141,0.0145,0.0299,0.0276,0.0278,0.0076,0.0077,0.0063,0.0115,0.0145,0.015,0.0259,0.0238,0.0237,0.0506,0.0596,0.0498,0.0915,0.0917,0.0914,0.2291,0.2273,0.1835,0.0038,0.0038,0.0038,0.007,0.007,0.0072,0.0149,0.0156,0.0158],[0.5135,0.403,0.5284,0.4344,0.4845,0.4786,0.4308,0.4475,0.4499,0.3391,0.3465,0.3272,0.3204,0.3185,0.3064,0.2635,0.265,0.2528,0.2812,0.2856,0.2788,0.2485,0.242,0.2542,0.2207,0.2369,0.2323,0.3562,0.3536,0.4013,0.3245,0.3223,0.3193,0.2873,0.2871,0.2923,0.2446,0.239,0.2443,0.2155,0.2262,0.2152,0.1964,0.1933,0.1995,0.2781,0.2752,0.2877,0.2481,0.2422,0.265,0.215,0.2167,0.2124,0.2683,0.2546,0.2765,0.2694,0.2544,0.2901,0.2635,0.2586,0.262,0.2314,0.2364,0.249,0.2155,0.2195,0.2169,0.1884,0.1895,0.1942,0.2426,0.2446,0.2512,0.2155,0.2177,0.2212,0.1889,0.1945,0.2002,0.2468,0.2425,0.2497,0.2218,0.2265,0.2264,0.1992,0.2039,0.2077],[0.3931,0.3103,0.4045,0.3348,0.3724,0.3683,0.3346,0.3472,0.349,0.2562,0.2618,0.247,0.2435,0.242,0.233,0.2039,0.2053,0.1959,0.2124,0.2157,0.2106,0.1894,0.1845,0.1937,0.1716,0.1837,0.1803,0.2685,0.2666,0.3023,0.2461,0.2445,0.2422,0.2211,0.2209,0.2248,0.1849,0.1807,0.1847,0.1646,0.1726,0.1643,0.1532,0.1511,0.1555,0.2105,0.2083,0.2176,0.1896,0.1855,0.2024,0.1684,0.1696,0.1668,0.2034,0.1931,0.2095,0.206,0.1947,0.2215,0.2056,0.2017,0.2043,0.1756,0.1793,0.1886,0.1653,0.1686,0.1667,0.1489,0.1495,0.153,0.1883,0.1907,0.1946,0.1733,0.1749,0.1775,0.1696,0.1736,0.1735,0.1867,0.1835,0.1889,0.1696,0.1731,0.173,0.1559,0.1595,0.1624]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Model<\/th>\n      <th>SampleSize<\/th>\n      <th>Data<\/th>\n      <th>A<\/th>\n      <th>B<\/th>\n      <th>C<\/th>\n      <th>Points<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":30,"order":[[0,"asc"]],"columnDefs":[{"className":"dt-right","targets":[1,3,4,5,6]},{"name":"Model","targets":0},{"name":"SampleSize","targets":1},{"name":"Data","targets":2},{"name":"A","targets":3},{"name":"B","targets":4},{"name":"C","targets":5},{"name":"Points","targets":6}],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,25,30,50,100]}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-428b3c4bb5a5b5af0038">{"x":{"filter":"none","vertical":false,"caption":"<caption>Preliminary Results (all 90 fits: 10 models × 3 sizes × 3 draws)<\/caption>","data":[["Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model1_multinom","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model2_knn3","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model3_rpart","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model4_randomForest","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model5_elasticNet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model6_nnet","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model7_xgboost","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model8_gbm","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf","Model9_svm_rbf"],[500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000,500,500,500,1000,1000,1000,2000,2000,2000],["dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3","dat_500_1","dat_500_2","dat_500_3","dat_1000_1","dat_1000_2","dat_1000_3","dat_2000_1","dat_2000_2","dat_2000_3"],[0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333,0.0083,0.0083,0.0083,0.0167,0.0167,0.0167,0.0333,0.0333,0.0333],[0.06510000000000001,0.0646,0.066,0.0643,0.0653,0.06950000000000001,0.06660000000000001,0.06610000000000001,0.06660000000000001,0.0065,0.0063,0.0038,0.0069,0.0065,0.0069,0.0132,0.0152,0.0131,0.0025,0.0028,0.0026,0.0054,0.0053,0.0052,0.0104,0.0105,0.0104,0.0013,0.0013,0.0011,0.0026,0.0025,0.0026,0.0058,0.0057,0.0056,0.0023,0.0023,0.0023,0.0042,0.0043,0.0044,0.008800000000000001,0.0113,0.008800000000000001,0.0063,0.0061,0.0064,0.0109,0.0135,0.0118,0.0217,0.0218,0.0266,0.0089,0.008999999999999999,0.0091,0.0144,0.014,0.0147,0.0299,0.0276,0.0273,0.0059,0.0059,0.0059,0.0115,0.0114,0.0119,0.0231,0.024,0.0233,0.0501,0.0494,0.0491,0.0949,0.09130000000000001,0.09130000000000001,0.1845,0.1835,0.1847,0.0036,0.0038,0.0037,0.0071,0.0071,0.0078,0.0152,0.0154,0.0146],[0.5135,0.403,0.5284,0.4344,0.4845,0.4786,0.4308,0.4475,0.4499,0.3391,0.3465,0.3272,0.3204,0.3185,0.3064,0.2635,0.265,0.2528,0.2812,0.2856,0.2788,0.2485,0.242,0.2542,0.2207,0.2369,0.2323,0.3562,0.3536,0.4013,0.3245,0.3223,0.3193,0.2873,0.2871,0.2923,0.2446,0.239,0.2443,0.2155,0.2262,0.2152,0.1964,0.1933,0.1995,0.2781,0.2752,0.2877,0.2481,0.2422,0.265,0.215,0.2167,0.2124,0.2683,0.2546,0.2765,0.2694,0.2544,0.2901,0.2635,0.2586,0.262,0.2314,0.2364,0.249,0.2155,0.2195,0.2169,0.1884,0.1895,0.1942,0.2426,0.2446,0.2512,0.2155,0.2177,0.2212,0.1889,0.1945,0.2002,0.2468,0.2425,0.2497,0.2218,0.2265,0.2264,0.1992,0.2039,0.2077],[0.3929,0.31,0.4041,0.3347,0.3724,0.3684,0.3348,0.3472,0.3491,0.2562,0.2618,0.247,0.2435,0.242,0.233,0.2039,0.2053,0.1959,0.2124,0.2157,0.2106,0.1894,0.1845,0.1937,0.1716,0.1837,0.1803,0.2685,0.2666,0.3023,0.2461,0.2445,0.2422,0.2211,0.2209,0.2248,0.1849,0.1807,0.1847,0.1646,0.1726,0.1643,0.1532,0.1511,0.1555,0.2105,0.2083,0.2177,0.1897,0.1855,0.2024,0.1684,0.1697,0.167,0.2034,0.1931,0.2095,0.206,0.1947,0.2215,0.2056,0.2017,0.2042,0.1754,0.1791,0.1886,0.1653,0.1683,0.1664,0.1486,0.1495,0.153,0.1882,0.1896,0.1946,0.1736,0.1749,0.1775,0.1651,0.1692,0.1736,0.1867,0.1835,0.1889,0.1696,0.1731,0.1731,0.1559,0.1595,0.1622]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Model<\/th>\n      <th>SampleSize<\/th>\n      <th>Data<\/th>\n      <th>A<\/th>\n      <th>B<\/th>\n      <th>C<\/th>\n      <th>Points<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":30,"order":[[0,"asc"]],"columnDefs":[{"className":"dt-right","targets":[1,3,4,5,6]},{"name":"Model","targets":0},{"name":"SampleSize","targets":1},{"name":"Data","targets":2},{"name":"A","targets":3},{"name":"B","targets":4},{"name":"C","targets":5},{"name":"Points","targets":6}],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,25,30,50,100]}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="scoreboard-30-rows-averages-by-model-sample-size" class="section level2">
 <h2>Scoreboard (30 rows = averages by Model × Sample Size)</h2>
@@ -3734,7 +3734,7 @@ if (!exists(&quot;dt_all&quot;)) {
   )
 }</code></pre>
 <div class="datatables html-widget html-fill-item" id="htmlwidget-8c69d415f0734472dd64" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-8c69d415f0734472dd64">{"x":{"filter":"none","vertical":false,"caption":"<caption>Scoreboard (averages over 3 draws for each Model × Sample Size)<\/caption>","data":[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],["Model7_xgboost","Model4_randomForest","Model9_svm_rbf","Model7_xgboost","Model4_randomForest","Model5_elasticNet","Model9_svm_rbf","Model8_gbm","Model8_gbm","Model2_knn3","Model7_xgboost","Model4_randomForest","Model9_svm_rbf","Model2_knn3","Model8_gbm","Model5_elasticNet","Model1_multinom","Model6_nnet","Model6_nnet","Model6_nnet","Model5_elasticNet","Model2_knn3","Model3_rpart","Model1_multinom","Model3_rpart","Model1_multinom","Model3_rpart","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes"],[2000,2000,2000,1000,1000,2000,1000,2000,1000,2000,500,500,500,1000,500,1000,2000,500,2000,1000,500,500,2000,1000,1000,500,500,2000,1000,500],[0.0333,0.0333,0.0333,0.0167,0.0167,0.0333,0.0167,0.0333,0.0167,0.0333,0.0083,0.0083,0.0083,0.0167,0.0083,0.0167,0.0333,0.0083,0.0333,0.0167,0.0083,0.0083,0.0333,0.0167,0.0167,0.0083,0.0083,0.0333,0.0167,0.0083],[0.0245,0.0094,0.0154,0.0137,0.0043,0.0225,0.0071,0.2133,0.0915,0.0104,0.0072,0.0023,0.0038,0.0052,0.0533,0.012,0.014,0.0089,0.0284,0.0143,0.0062,0.0026,0.0056,0.0067,0.0027,0.0055,0.0012,0.0655,0.0663,0.06809999999999999],[0.1907,0.1964,0.2036,0.2173,0.219,0.2147,0.2249,0.1945,0.2181,0.23,0.2389,0.2426,0.2463,0.2482,0.2461,0.2518,0.2604,0.2665,0.2614,0.2713,0.2803,0.2819,0.2889,0.3151,0.322,0.3376,0.3704,0.4427,0.4658,0.4816],[0.1505,0.1533,0.1593,0.1669,0.1672,0.1683,0.1719,0.1722,0.1752,0.1785,0.1812,0.1834,0.1864,0.1892,0.1912,0.1925,0.2017,0.202,0.2039,0.2074,0.2121,0.2129,0.2223,0.2395,0.2443,0.255,0.2791,0.3436,0.3585,0.3693]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Rank<\/th>\n      <th>Model<\/th>\n      <th>SampleSize<\/th>\n      <th>A<\/th>\n      <th>B<\/th>\n      <th>C<\/th>\n      <th>Points<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":30,"order":[[0,"asc"]],"columnDefs":[{"className":"dt-right","targets":[0,2,3,4,5,6]},{"name":"Rank","targets":0},{"name":"Model","targets":1},{"name":"SampleSize","targets":2},{"name":"A","targets":3},{"name":"B","targets":4},{"name":"C","targets":5},{"name":"Points","targets":6}],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,25,30,50,100]}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-8c69d415f0734472dd64">{"x":{"filter":"none","vertical":false,"caption":"<caption>Scoreboard (averages over 3 draws for each Model × Sample Size)<\/caption>","data":[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],["Model7_xgboost","Model4_randomForest","Model9_svm_rbf","Model7_xgboost","Model4_randomForest","Model5_elasticNet","Model8_gbm","Model9_svm_rbf","Model8_gbm","Model2_knn3","Model7_xgboost","Model4_randomForest","Model9_svm_rbf","Model2_knn3","Model8_gbm","Model5_elasticNet","Model1_multinom","Model6_nnet","Model6_nnet","Model6_nnet","Model5_elasticNet","Model2_knn3","Model3_rpart","Model1_multinom","Model3_rpart","Model1_multinom","Model3_rpart","Model10_naive_bayes","Model10_naive_bayes","Model10_naive_bayes"],[2000,2000,2000,1000,1000,2000,2000,1000,1000,2000,500,500,500,1000,500,1000,2000,500,2000,1000,500,500,2000,1000,1000,500,500,2000,1000,500],[0.0333,0.0333,0.0333,0.0167,0.0167,0.0333,0.0333,0.0167,0.0167,0.0333,0.0083,0.0083,0.0083,0.0167,0.0083,0.0167,0.0333,0.0083,0.0333,0.0167,0.0083,0.0083,0.0333,0.0167,0.0167,0.0083,0.0083,0.0333,0.0167,0.0083],[0.0235,0.009599999999999999,0.0151,0.0116,0.0043,0.0234,0.1842,0.0073,0.0925,0.0104,0.0059,0.0023,0.0037,0.0053,0.0495,0.0121,0.0138,0.008999999999999999,0.0283,0.0144,0.0063,0.0026,0.0057,0.0068,0.0026,0.0055,0.0012,0.0664,0.0664,0.06519999999999999],[0.1907,0.1964,0.2036,0.2173,0.219,0.2147,0.1945,0.2249,0.2181,0.23,0.2389,0.2426,0.2463,0.2482,0.2461,0.2518,0.2604,0.2665,0.2614,0.2713,0.2803,0.2819,0.2889,0.3151,0.322,0.3376,0.3704,0.4427,0.4658,0.4816],[0.1504,0.1533,0.1592,0.1667,0.1672,0.1684,0.1693,0.1719,0.1753,0.1785,0.181,0.1834,0.1864,0.1892,0.1908,0.1925,0.2017,0.202,0.2038,0.2074,0.2122,0.2129,0.2223,0.2395,0.2443,0.255,0.2791,0.3437,0.3585,0.369]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Rank<\/th>\n      <th>Model<\/th>\n      <th>SampleSize<\/th>\n      <th>A<\/th>\n      <th>B<\/th>\n      <th>C<\/th>\n      <th>Points<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":30,"order":[[0,"asc"]],"columnDefs":[{"className":"dt-right","targets":[0,2,3,4,5,6]},{"name":"Rank","targets":0},{"name":"Model","targets":1},{"name":"SampleSize","targets":2},{"name":"A","targets":3},{"name":"B","targets":4},{"name":"C","targets":5},{"name":"Points","targets":6}],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,25,30,50,100]}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="summary-of-key-results" class="section level2">
 <h2>Summary of Key Results</h2>

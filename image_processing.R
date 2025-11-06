@@ -1,0 +1,779 @@
+## ----setup, include=FALSE-----------------------------------------------------
+set.seed(72)
+knitr::opts_chunk$set(
+  echo = TRUE,
+  comment="",
+  warning = FALSE,
+  message = FALSE,
+  tidy.opts=list(width.cutoff=55)
+)
+
+
+## ----libraries, echo=FALSE----------------------------------------------------
+# core
+library(data.table)
+library(here)
+library(knitr)
+library(rmarkdown)
+library(DT)
+
+# models
+library(nnet)
+library(class)
+library(rpart)
+library(randomForest)
+library(glmnet)
+library(e1071)
+library(gbm)
+library(xgboost)
+
+
+## ----source_files-------------------------------------------------------------
+
+
+
+## ----constants----------------------------------------------------------------
+n.values <- c(500, 1000, 2000)
+iterations <- 3
+pixel_cols <- paste0("pixel", 1:49)
+px_cols    <- pixel_cols
+N_train_raw <- NA_integer_
+
+
+## ----functions----------------------------------------------------------------
+knn2 <- function(train_raw, test_raw, cl, k) {
+  class::knn(train=train_raw, test=test_raw, cl=cl, k=k)
+}
+
+mk_res <- function(model_name, A,B,C,Points,time_sec) {
+  list(Model=model_name, A=A, B=B, C=C, Points=Points, time_sec=time_sec)
+}
+
+summarize_results_df <- function(df, model_name, choose = c("best","mean")) {
+  if (is.null(df) || nrow(df) == 0) return(NULL)
+  choose <- match.arg(choose)
+
+  
+  if (!"time_sec" %in% names(df) && "runtime" %in% names(df)) {
+    df$time_sec <- df$runtime
+  }
+
+  if (choose == "best") {
+    i <- which.min(df$Points)
+    row <- df[i, ]
+    data.table::data.table(
+      Model      = model_name,
+      Summary    = "best",
+      SampleSize = if ("SampleSize" %in% names(row)) row$SampleSize else NA_integer_,
+      Iter       = if ("Iter" %in% names(row)) row$Iter else NA_integer_,
+      Data       = if (all(c("SampleSize","Iter") %in% names(row)))
+                     sprintf("dat_%s_%s", row$SampleSize, row$Iter) else NA_character_,
+      A          = row$A,
+      B          = row$B,
+      C          = row$C,
+      Points     = row$Points,
+      time_sec   = row$time_sec
+    )
+  } else { 
+    data.table::data.table(
+      Model      = model_name,
+      Summary    = "mean",
+      SampleSize = NA_integer_,
+      Iter       = NA_integer_,
+      Data       = NA_character_,
+      A          = mean(df$A, na.rm = TRUE),
+      B          = mean(df$B, na.rm = TRUE),
+      C          = mean(df$C, na.rm = TRUE),
+      Points     = mean(df$Points, na.rm = TRUE),
+      time_sec   = mean(df$time_sec, na.rm = TRUE)
+    )
+  }
+}
+
+
+## ----load_data----------------------------------------------------------------
+train_path <- here::here("data", "MNIST-fashion training set-49.csv")
+test_path  <- here::here("data", "MNIST-fashion testing set-49.csv")
+
+train_raw <- data.table::fread(train_path)
+test_raw  <- data.table::fread(test_path)
+
+N_train_raw <- nrow(train_raw)
+
+
+## ----clean_data---------------------------------------------------------------
+
+
+
+## ----generate_samples---------------------------------------------------------
+dev_sets <- list()
+dev_index <- data.table::data.table()
+
+for (n in n.values) {
+  dev_sets[[as.character(n)]] <- vector("list", iterations)
+
+  for (k in 1:iterations) {
+
+    replace_flag <- (n >= N_train_raw)
+    idx <- sample.int(N_train_raw, size = n, replace = replace_flag)
+
+    dat_nk <- train_raw[idx]
+    dev_sets[[as.character(n)]][[k]] <- data.table::copy(dat_nk)
+
+    dev_index <- rbind(
+      dev_index,
+      data.table::data.table(
+        SampleSize = n,
+        Iter       = k,
+        Data       = sprintf("dat_%d_%d", n, k)
+      )
+    )
+  }
+}
+
+
+## ----visual-------------------------------------------------------------------
+i <- 1
+px <- as.numeric(train_raw[i, -1])
+mat <- matrix(px, nrow = 7, ncol = 7, byrow = TRUE)
+image(t(apply(mat, 2, rev)), col = gray.colors(256),
+      main = train_raw$label[i], axes = FALSE)
+
+
+## ----code_model1_development, eval=TRUE---------------------------------------
+results_model1 <- data.frame()
+
+for(n in n.values){
+  for(k in 1:iterations){
+
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    t0 <- Sys.time()
+    mod <- multinom(label ~ ., data = dat_nk, trace = FALSE)
+    preds <- predict(mod, newdata = test_local, type="class")
+    t1 <- Sys.time()
+
+    runtime_sec <- as.numeric(difftime(t1,t0,units="secs"))
+    A <- n / N_train_raw
+    B <- min(1, runtime_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    results_model1 <- rbind(
+      results_model1,
+      data.frame(Model="Model1_multinom", SampleSize=n, Iter=k,
+                 A=A, B=B, C=C, Points=Points, runtime=runtime_sec)
+    )
+  }
+}
+
+
+## ----load_model1--------------------------------------------------------------
+res_m1 <- summarize_results_df(results_model1, "M1_multinom", "best")
+res_m1
+
+
+## ----code_model2_development, eval=TRUE---------------------------------------
+results_model2 <- data.frame()
+
+for(n in n.values){
+  for(k in 1:iterations){
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
+    train_raw_x_dt <- dat_nk[, ..pixel_cols]
+    test_local     <- data.table::copy(test_raw)
+    test_raw_x_dt  <- test_local[, ..pixel_cols]
+
+    train_raw_x <- as.matrix(train_raw_x_dt)
+    test_raw_x  <- as.matrix(test_raw_x_dt)
+
+    mu  <- colMeans(train_raw_x)
+    sdv <- apply(train_raw_x, 2, sd); sdv[sdv == 0] <- 1
+
+    train_raw_xs <- sweep(sweep(train_raw_x, 2, mu, "-"), 2, sdv, "/")
+    test_raw_xs  <- sweep(sweep(test_raw_x,  2, mu, "-"), 2, sdv, "/")
+
+    t0 <- Sys.time()
+    preds <- knn2(train_raw=train_raw_xs, test_raw=test_raw_xs, cl=dat_nk$label, k=3)
+    t1 <- Sys.time()
+
+    runtime_sec <- as.numeric(difftime(t1,t0,units="secs"))
+    A <- n / N_train_raw
+    B <- min(1, runtime_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    results_model2 <- rbind(
+      results_model2,
+      data.frame(Model="Model2_knn3", SampleSize=n, Iter=k,
+                 A=A, B=B, C=C, Points=Points, runtime=runtime_sec)
+    )
+  }
+}
+
+
+## ----load_model2--------------------------------------------------------------
+res_m2 <- summarize_results_df(results_model2, "M2_knn3", "best")
+res_m2
+
+
+## ----code_model3_development, eval=TRUE---------------------------------------
+results_model3 <- data.frame()
+
+for(n in n.values){
+  for(k in 1:iterations){
+
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    t0 <- Sys.time()
+    mod <- rpart(label ~ ., data = dat_nk,
+                 method="class",
+                 control = rpart.control(cp=0.001, maxdepth=20, minsplit=20))
+    preds <- predict(mod, newdata=test_local, type="class")
+    t1 <- Sys.time()
+
+    runtime_sec <- as.numeric(difftime(t1,t0,units="secs"))
+    A <- n / N_train_raw
+    B <- min(1, runtime_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    results_model3 <- rbind(
+      results_model3,
+      data.frame(Model="Model3_rpart", SampleSize=n, Iter=k,
+                 A=A, B=B, C=C, Points=Points, runtime=runtime_sec)
+    )
+  }
+}
+
+
+## ----load_model3--------------------------------------------------------------
+res_m3 <- summarize_results_df(results_model3, "M3_rpart", "best")
+res_m3
+
+
+## ----code_model4_development, eval=TRUE---------------------------------------
+results_model4 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+
+rf_ntree <- 120
+rf_mtry  <- 7   
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+    
+    t0 <- proc.time()
+    rf_model <- randomForest(
+      x = dat_nk[, ..px_cols],
+      y = dat_nk$label,
+      ntree = rf_ntree,
+      mtry  = rf_mtry
+    )
+    rf_pred <- predict(rf_model, newdata = test_local[, ..px_cols])
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(rf_pred != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model4[[idx]] <- data.table::data.table(
+      Model = "Model4_randomForest",
+      SampleSize = n, Iter = k,
+      ntree = rf_ntree, mtry = rf_mtry,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model4 <- data.table::rbindlist(results_model4)
+
+
+## ----load_model4--------------------------------------------------------------
+res_m4 <- summarize_results_df(results_model4, "M4_randomForest", "best")
+res_m4
+
+
+## ----code_model5_development, eval=TRUE---------------------------------------
+results_model5 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+alpha_val <- 0.3  
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    x_train <- as.matrix(dat_nk[, ..px_cols])
+    y_train <- dat_nk$label
+    x_test  <- as.matrix(test_local[, ..px_cols])
+    y_test  <- test_local$label
+
+    t0 <- proc.time()
+    fit <- glmnet(x = x_train, y = y_train, alpha = alpha_val, family = "multinomial")
+    lam <- if (!is.null(fit$lambda.min)) fit$lambda.min else tail(fit$lambda, 1L)
+    preds <- predict(fit, newx = x_test, s = lam, type = "class")
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(preds != y_test)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model5[[idx]] <- data.table::data.table(
+      Model = "Model5_elasticNet",
+      SampleSize = n, Iter = k,
+      alpha = alpha_val,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model5 <- data.table::rbindlist(results_model5)
+
+
+## ----load_model5--------------------------------------------------------------
+res_m5 <- summarize_results_df(results_model5, "M5_elasticNet", "best")
+res_m5
+
+
+## ----code_model6_development, eval=TRUE---------------------------------------
+results_model6 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+
+nn_size  <- 15
+nn_decay <- 5e-4
+nn_maxit <- 200
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+    
+    x_train <- as.matrix(dat_nk[, ..px_cols])
+    x_test  <- as.matrix(test_local[, ..px_cols])
+
+    mu  <- colMeans(x_train)
+    sdv <- apply(x_train, 2, sd); sdv[sdv == 0] <- 1
+    x_train_s <- sweep(sweep(x_train, 2, mu, "-"), 2, sdv, "/")
+    x_test_s  <- sweep(sweep(x_test,  2, mu, "-"), 2, sdv, "/")
+    
+    y_levels <- levels(dat_nk$label)
+    y_mat <- nnet::class.ind(dat_nk$label)
+
+    t0 <- proc.time()
+    nn_fit <- nnet::nnet(
+      x = x_train_s, y = y_mat,
+      size = nn_size, decay = nn_decay, maxit = nn_maxit,
+      softmax = TRUE, trace = FALSE
+    )
+    prob <- predict(nn_fit, newdata = x_test_s, type = "raw")
+    pred_idx <- max.col(prob, ties.method = "first")
+    preds <- factor(y_levels[pred_idx], levels = y_levels)
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model6[[idx]] <- data.table::data.table(
+      Model = "Model6_nnet",
+      SampleSize = n, Iter = k,
+      size = nn_size, decay = nn_decay, maxit = nn_maxit,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model6 <- data.table::rbindlist(results_model6)
+
+
+## ----load_model6--------------------------------------------------------------
+res_m6 <- summarize_results_df(results_model6, "M6_nnet", "best")
+res_m6
+
+
+## ----code_model7_development, eval=TRUE---------------------------------------
+results_model7 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+
+xgb_eta       <- 0.1
+xgb_max_depth <- 4
+xgb_subsample <- 0.8
+xgb_colsample <- 0.8
+xgb_rounds    <- 80
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+
+    
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    
+    x_train <- as.matrix(dat_nk[, ..px_cols])
+    x_test  <- as.matrix(test_local[, ..px_cols])
+    y_levels   <- levels(dat_nk$label)
+    num_class  <- length(y_levels)
+    y_train_int <- as.integer(dat_nk$label) - 1L
+
+    dtrain <- xgboost::xgb.DMatrix(data = x_train, label = y_train_int)
+    dtest  <- xgboost::xgb.DMatrix(data = x_test)
+
+    
+    t0 <- proc.time()
+    mod <- xgboost::xgb.train(
+      params = list(
+        objective        = "multi:softprob",
+        num_class        = num_class,
+        eta              = xgb_eta,
+        max_depth        = xgb_max_depth,
+        subsample        = xgb_subsample,
+        colsample_bytree = xgb_colsample,
+        nthread          = 2
+      ),
+      data    = dtrain,
+      nrounds = xgb_rounds,
+      verbose = 0
+    )
+    prob <- predict(mod, dtest)
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    
+    prob_mat <- matrix(prob, nrow = nrow(test_local), ncol = num_class, byrow = TRUE)
+    pred_idx <- max.col(prob_mat, ties.method = "first")
+    preds <- factor(y_levels[pred_idx], levels = y_levels)
+
+    
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model7[[idx]] <- data.table::data.table(
+      Model = "Model7_xgboost",
+      SampleSize = n, Iter = k,
+      eta = xgb_eta, max_depth = xgb_max_depth, rounds = xgb_rounds,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model7 <- data.table::rbindlist(results_model7)
+
+
+## ----load_model7--------------------------------------------------------------
+res_m7 <- summarize_results_df(results_model7, "M7_xgboost", "best")
+res_m7
+
+
+## ----code_model8_development, eval=TRUE---------------------------------------
+results_model8 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+gbm_params <- list(
+  n.trees = 500,
+  interaction.depth = 3,
+  shrinkage = 0.05,
+  n.minobsinnode = 10,
+  bag.fraction = 0.8
+)
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    lbl_levels  <- levels(dat_nk$label)
+    K <- length(lbl_levels)
+    y_train_num <- as.integer(dat_nk$label) - 1L
+
+    train_df <- data.frame(y_train_num = y_train_num, dat_nk[, ..px_cols])
+    test_df  <- as.data.frame(test_local[, ..px_cols])
+
+    t0 <- proc.time()
+    gbm_fit <- gbm::gbm(
+      formula = y_train_num ~ .,
+      data    = train_df,
+      distribution = "multinomial",
+      n.trees = gbm_params$n.trees,
+      interaction.depth = gbm_params$interaction.depth,
+      shrinkage = gbm_params$shrinkage,
+      n.minobsinnode = gbm_params$n.minobsinnode,
+      bag.fraction = gbm_params$bag.fraction,
+      train.fraction = 1.0,
+      verbose = FALSE
+    )
+
+    pred_prob <- predict(
+      gbm_fit,
+      newdata = test_df,
+      n.trees = gbm_params$n.trees,
+      type = "response"
+    )
+
+    dims <- dim(pred_prob)
+    if (!is.null(dims) && length(dims) == 3) {
+      prob_mat <- pred_prob[, , dims[3], drop = TRUE]
+    } else if (!is.null(dims) && length(dims) == 2) {
+      prob_mat <- pred_prob
+    } else {
+      prob_mat <- matrix(pred_prob, nrow = nrow(test_local), ncol = K, byrow = FALSE)
+    }
+
+    pred_idx <- max.col(prob_mat, ties.method = "first")
+    preds <- factor(lbl_levels[pred_idx], levels = lbl_levels)
+
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model8[[idx]] <- data.table::data.table(
+      Model = "Model8_gbm",
+      SampleSize = n, Iter = k,
+      n.trees = gbm_params$n.trees,
+      depth = gbm_params$interaction.depth,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model8 <- data.table::rbindlist(results_model8)
+
+
+## ----load_model8--------------------------------------------------------------
+res_m8 <- summarize_results_df(results_model8, "M8_gbm", "best")
+res_m8
+
+
+## ----code_model9_development, eval=TRUE---------------------------------------
+results_model9 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+svm_cost  <- 1
+svm_gamma <- 1/49  
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    x_train_df <- as.data.frame(dat_nk[, ..px_cols])
+    x_test_df  <- as.data.frame(test_local[, ..px_cols])
+    y_train    <- dat_nk$label
+    y_test     <- test_local$label
+
+    t0 <- proc.time()
+    svm_mod <- e1071::svm(
+      x = x_train_df, y = y_train,
+      kernel = "radial",
+      cost = svm_cost,
+      gamma = svm_gamma,
+      scale = TRUE
+    )
+    pred_m9 <- predict(svm_mod, newdata = x_test_df)
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(pred_m9 != y_test)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model9[[idx]] <- data.table::data.table(
+      Model = "Model9_svm_rbf",
+      SampleSize = n, Iter = k,
+      cost = svm_cost, gamma = svm_gamma,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model9 <- data.table::rbindlist(results_model9)
+
+
+## ----load_model9--------------------------------------------------------------
+res_m9 <- summarize_results_df(results_model9, "M9_svm_rbf", "best")
+res_m9
+
+
+## ----code_model10_development, eval=TRUE--------------------------------------
+results_model10 <- vector("list", length(n.values) * iterations)
+idx <- 0L
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    x_train_df <- as.data.frame(dat_nk[, ..px_cols])
+    x_test_df  <- as.data.frame(test_local[, ..px_cols])
+    y_train    <- dat_nk$label
+    y_test     <- test_local$label
+
+    t0 <- proc.time()
+    nb_mod <- e1071::naiveBayes(x = x_train_df, y = y_train)
+    pred_m10 <- predict(nb_mod, newdata = x_test_df)
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(pred_m10 != y_test)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model10[[idx]] <- data.table::data.table(
+      Model = "Model10_naive_bayes",
+      SampleSize = n, Iter = k,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model10 <- data.table::rbindlist(results_model10)
+
+
+## ----load_model10-------------------------------------------------------------
+res_m10 <- summarize_results_df(results_model10, "M10_naive_bayes", "best")
+res_m10
+
+
+## ----preliminary_results------------------------------------------------------
+
+res_names <- ls(pattern = "^results_model\\d+$")
+res_tbls  <- if (length(res_names)) mget(res_names, inherits = TRUE) else list()
+
+
+res_tbls <- Filter(function(x) is.data.frame(x) || data.table::is.data.table(x), res_tbls)
+
+if (!length(res_tbls)) {
+  cat("No per-fit results found. Knit the model chunks first.")
+} else {
+
+  dt_all <- data.table::rbindlist(lapply(res_tbls, data.table::as.data.table), fill = TRUE)
+
+  if (all(c("SampleSize","Iter") %in% names(dt_all))) {
+    dt_all[, Data := sprintf("dat_%d_%d", SampleSize, Iter)]
+  } else {
+    dt_all[, Data := NA_character_]
+  }
+
+  if (!"time_sec" %in% names(dt_all) && "runtime" %in% names(dt_all)) {
+    data.table::setnames(dt_all, "runtime", "time_sec")
+  }
+  
+  data.table::setorder(dt_all, Model, SampleSize, Iter)
+  num_cols <- intersect(c("A","B","C","Points"), names(dt_all))
+  if (length(num_cols)) {
+    dt_all[, (num_cols) := lapply(.SD, function(x) round(x, 4)), .SDcols = num_cols]
+  }
+  
+  cols_disp <- c("Model","SampleSize","Data","A","B","C","Points")
+  cols_disp <- intersect(cols_disp, names(dt_all))
+
+  DT::datatable(
+    dt_all[, ..cols_disp],
+    rownames = FALSE,
+    options = list(pageLength = 30, order = list(list(0, "asc"))),
+    caption = "Preliminary Results (all 90 fits: 10 models × 3 sizes × 3 draws)"
+  )
+}
+
+
+## ----scoreboard_avg-----------------------------------------------------------
+
+if (!exists("dt_all")) {
+  res_names <- ls(pattern = "^results_model\\d+$")
+  res_tbls  <- if (length(res_names)) mget(res_names, inherits = TRUE) else list()
+  res_tbls  <- Filter(function(x) is.data.frame(x) || data.table::is.data.table(x), res_tbls)
+  if (length(res_tbls)) {
+    dt_all <- data.table::rbindlist(lapply(res_tbls, data.table::as.data.table), fill = TRUE)
+  }
+}
+
+if (!exists("dt_all")) {
+  cat("No per-fit results found. Knit the model chunks first.")
+} else {
+  need <- c("Model","SampleSize","A","B","C","Points")
+  if (!all(need %in% names(dt_all))) {
+    stop("Missing required columns in results to compute scoreboard.")
+  }
+  
+  sb <- dt_all[, .(
+    A = mean(A, na.rm = TRUE),
+    B = mean(B, na.rm = TRUE),
+    C = mean(C, na.rm = TRUE),
+    Points = mean(Points, na.rm = TRUE)
+  ), by = .(Model, SampleSize)]
+
+  data.table::setorder(sb, Points)
+  sb[, Rank := .I]
+  sb[, `:=`(
+    A      = round(A, 4),
+    B      = round(B, 4),
+    C      = round(C, 4),
+    Points = round(Points, 4)
+  )]
+
+  sb_disp <- sb[, .(Rank, Model, SampleSize, A, B, C, Points)]
+
+  DT::datatable(
+    sb_disp,
+    rownames = FALSE,
+    options = list(pageLength = 30, order = list(list(0, "asc"))),
+    caption = "Scoreboard (averages over 3 draws for each Model × Sample Size)"
+  )
+}
+

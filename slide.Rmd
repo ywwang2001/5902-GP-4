@@ -1,0 +1,114 @@
+---
+title: "Image Processing — Executive Summary"
+author: "Clara Dragut, Yuwen Wang, Ziyao Wang"
+date: "Nov 2025"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+library(DT)
+library(data.table)
+
+# load pre-computed table
+dt_all <- readRDS("dt_all_results.rds")
+dt_all <- as.data.table(dt_all)
+
+# convenience: slim display columns if present
+cols <- intersect(c("Model","SampleSize","A","B","C","Points"), names(dt_all))
+```
+
+# Project Overview
+
+* Image classification models developed across ten algorithmic families
+* Dataset split into development + shared test set
+* Objective: compare accuracy, efficiency, and design tradeoffs
+* Results guide engineering teams in selecting suitable deployment paths
+
+---
+
+# Data & Design
+
+* Fixed train/test pipeline to ensure comparability
+* Three sample sizes: 500, 1000, 2000
+* Three random draws per size (90 total fits)
+* All models evaluated with identical scoring rule
+
+---
+
+# Summary Table
+
+```{r, echo=FALSE}
+if (length(cols)) {
+  datatable(
+    dt_all[, ..cols],
+    rownames = FALSE,
+    options = list(pageLength = 12),
+    caption = "All Model Fits — A, B, C, and Composite Points"
+  )
+} else {
+  "dt_all loaded but expected columns not found."
+}
+```
+
+---
+
+# Model Performance — High Level
+
+* Random Forest, XGBoost, and GBM rank highest overall
+* SVM (RBF) performs competitively with moderate runtime
+* KNN shows strong accuracy given scale; costs grow with sample size
+* Naive Bayes and rpart lag in predictive quality
+
+---
+
+# Best Models by Sample Size
+
+* **500 rows:** Random Forest and XGBoost lead
+* **1000 rows:** Random Forest consistently strong
+* **2000 rows:** XGBoost marginally improves; GBM slows considerably
+
+---
+
+# Runtime Observations
+
+* Tree models scale gracefully
+* GBM has highest wall-clock cost
+* Neural network modest size → runtime manageable
+* Multinomial regression extremely fast baseline
+
+---
+
+# Key Tradeoffs
+
+* When latency matters → multinom / rpart / KNN
+* When accuracy matters → RF > XGB > SVM
+* GBM offers incremental gains but expensive
+* Neural networks reasonable but not dominant
+
+---
+
+# Recommendations
+
+* Deploy Random Forest baseline for fast adoption
+* Evaluate XGBoost for production environments
+* Only explore GBM if future accuracy needs justify cost
+* Avoid naive Bayes except as benchmarking reference
+
+---
+
+# Proposal for Further Work
+
+* Model compression + distillation
+* Training pipelines with active data refresh
+* Embedded feature selection to reduce dimensionality
+* Infrastructure cost benchmarking
+
+---
+
+# Closing Remarks
+
+* Ten ML approaches compared rigorously
+* Clear winners: RF and XGB
+* Project demonstrates scalable workflow for new models
+* More optimization possible — happy to collaborate
+
