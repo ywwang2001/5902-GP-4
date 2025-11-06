@@ -5,10 +5,15 @@ date: "Nov 2025"
 output: html_document
 ---
 
-
 ```{r setup, include=FALSE}
 set.seed(72)
-knitr::opts_chunk$set(echo = TRUE, comment="", warning = FALSE, message = FALSE, tidy.opts=list(width.cutoff=55))
+knitr::opts_chunk$set(
+  echo = TRUE,
+  comment="",
+  warning = FALSE,
+  message = FALSE,
+  tidy.opts=list(width.cutoff=55)
+)
 ```
 
 ```{r libraries, echo=FALSE}
@@ -31,7 +36,7 @@ library(xgboost)
 ```
 
 ```{r source_files}
-# (intentionally empty)
+
 ```
 
 ```{r constants}
@@ -43,20 +48,53 @@ N_train_raw <- NA_integer_
 ```
 
 ```{r functions}
-# thin glue only (keeps each model’s own cleaning local)
-knn2 <- function(train_raw, test_raw, cl, k) class::knn(train=train_raw, test=test_raw, cl=cl, k=k)
+knn2 <- function(train_raw, test_raw, cl, k) {
+  class::knn(train=train_raw, test=test_raw, cl=cl, k=k)
+}
 
 mk_res <- function(model_name, A,B,C,Points,time_sec) {
   list(Model=model_name, A=A, B=B, C=C, Points=Points, time_sec=time_sec)
 }
 
-summarize_results_df <- function(df, model_name, choose=c("best","mean")) {
-  if (is.null(df) || nrow(df)==0) return(NULL)
+summarize_results_df <- function(df, model_name, choose = c("best","mean")) {
+  if (is.null(df) || nrow(df) == 0) return(NULL)
   choose <- match.arg(choose)
-  if (choose=="best") row <- df[which.min(df$Points), ] else
-    row <- data.frame(A=mean(df$A),B=mean(df$B),C=mean(df$C),
-                      Points=mean(df$Points), runtime=mean(df$runtime))
-  mk_res(model_name, row$A,row$B,row$C,row$Points,row$runtime)
+
+  
+  if (!"time_sec" %in% names(df) && "runtime" %in% names(df)) {
+    df$time_sec <- df$runtime
+  }
+
+  if (choose == "best") {
+    i <- which.min(df$Points)
+    row <- df[i, ]
+    data.table::data.table(
+      Model      = model_name,
+      Summary    = "best",
+      SampleSize = if ("SampleSize" %in% names(row)) row$SampleSize else NA_integer_,
+      Iter       = if ("Iter" %in% names(row)) row$Iter else NA_integer_,
+      Data       = if (all(c("SampleSize","Iter") %in% names(row)))
+                     sprintf("dat_%s_%s", row$SampleSize, row$Iter) else NA_character_,
+      A          = row$A,
+      B          = row$B,
+      C          = row$C,
+      Points     = row$Points,
+      time_sec   = row$time_sec
+    )
+  } else { 
+    data.table::data.table(
+      Model      = model_name,
+      Summary    = "mean",
+      SampleSize = NA_integer_,
+      Iter       = NA_integer_,
+      Data       = NA_character_,
+      A          = mean(df$A, na.rm = TRUE),
+      B          = mean(df$B, na.rm = TRUE),
+      C          = mean(df$C, na.rm = TRUE),
+      Points     = mean(df$Points, na.rm = TRUE),
+      time_sec   = mean(df$time_sec, na.rm = TRUE)
+    )
+  }
 }
 ```
 
@@ -71,12 +109,41 @@ N_train_raw <- nrow(train_raw)
 ```
 
 ```{r clean_data}
-# no global cleaning; each model cleans in its own block
+
 ```
 
 ```{r generate_samples}
+dev_sets <- list()
+dev_index <- data.table::data.table()
 
+for (n in n.values) {
+  dev_sets[[as.character(n)]] <- vector("list", iterations)
+
+  for (k in 1:iterations) {
+
+    replace_flag <- (n >= N_train_raw)
+    idx <- sample.int(N_train_raw, size = n, replace = replace_flag)
+
+    dat_nk <- train_raw[idx]
+    dev_sets[[as.character(n)]][[k]] <- data.table::copy(dat_nk)
+
+    dev_index <- rbind(
+      dev_index,
+      data.table::data.table(
+        SampleSize = n,
+        Iter       = k,
+        Data       = sprintf("dat_%d_%d", n, k)
+      )
+    )
+  }
+}
 ```
+
+
+
+## Introduction {.tabset}
+
+This project evaluates supervised learning methods for image classification using the Fashion-MNIST dataset, reduced to 49 pixel features. The task is to assign each image to one of ten clothing categories. We trained ten machine-learning models across three sample sizes (500, 1000, 2000 records), with three random draws at each size, for a total of 90 fitted models. Performance was assessed on a fixed test set using misclassification rate, runtime, and an overall scoring function combining sample proportion (A), runtime (B), and accuracy (C). Models include linear, distance-based, tree-based, regularized, ensemble, neural, Bayesian, and kernel approaches. Each model was run with a consistent evaluation structure and lightweight hyperparameter settings to maintain comparability. The goal is to understand how different techniques perform under constrained feature dimensionality and varying training sample sizes. Results guide which modeling strategy offers the best trade-off between accuracy and computational cost.
 
 ```{r visual}
 i <- 1
@@ -86,9 +153,9 @@ image(t(apply(mat, 2, rev)), col = gray.colors(256),
       main = train_raw$label[i], axes = FALSE)
 ```
 
-## Introduction {.tabset}
+### Model 1 — Multinomial Logistic Regression
 
-## Model 1
+This model applies multinomial logistic regression, a linear classifier that models class probabilities using a softmax function. It was selected as a simple, fast baseline with minimal tuning, allowing us to benchmark more complex techniques. The model is trained on each development set and used to predict class labels for the test set; performance is evaluated by misclassification rate and combined scoring. Advantages include interpretability and low computational cost, though accuracy is limited since the method assumes linear decision boundaries. Overall, it provides a stable baseline but is not expected to match nonlinear or ensemble models.
 
 ```{r code_model1_development, eval=TRUE}
 results_model1 <- data.frame()
@@ -96,20 +163,21 @@ results_model1 <- data.frame()
 for(n in n.values){
   for(k in 1:iterations){
 
-    dat_nk <- train_raw[sample(.N, n)]
-
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
     dat_nk[, label := as.factor(label)]
-    test_raw[, label := factor(label, levels = levels(dat_nk$label))]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
 
     t0 <- Sys.time()
     mod <- multinom(label ~ ., data = dat_nk, trace = FALSE)
-    preds <- predict(mod, newdata = test_raw, type="class")
+    preds <- predict(mod, newdata = test_local, type="class")
     t1 <- Sys.time()
 
     runtime_sec <- as.numeric(difftime(t1,t0,units="secs"))
     A <- n / N_train_raw
     B <- min(1, runtime_sec / 60)
-    C <- mean(preds != test_raw$label)
+    C <- mean(preds != test_local$label)
     Points <- 0.15*A + 0.10*B + 0.75*C
 
     results_model1 <- rbind(
@@ -126,18 +194,22 @@ res_m1 <- summarize_results_df(results_model1, "M1_multinom", "best")
 res_m1
 ```
 
-## Model 2
+### Model 2 — k-Nearest Neighbors (k=3)
+
+This model uses k-Nearest Neighbors with (k = 3), a simple instance-based method that classifies each test image by the majority label among its three closest training samples in standardized pixel space. We standardized all pixel columns to ensure that distance calculations were not dominated by large-variance features. KNN requires no parameter training, but prediction can be slow on larger datasets because distances are computed at query time. Its advantage is conceptual simplicity and the ability to capture local structure, though it struggles when classes overlap and does not scale well to high dimensional data. Overall, this serves as a lightweight nonlinear baseline.
+
 
 ```{r code_model2_development, eval=TRUE}
 results_model2 <- data.frame()
 
 for(n in n.values){
   for(k in 1:iterations){
-
-    dat_nk <- train_raw[sample(.N, n)]
-
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
     train_raw_x_dt <- dat_nk[, ..pixel_cols]
-    test_raw_x_dt  <- test_raw[, ..pixel_cols]
+    test_local     <- data.table::copy(test_raw)
+    test_raw_x_dt  <- test_local[, ..pixel_cols]
 
     train_raw_x <- as.matrix(train_raw_x_dt)
     test_raw_x  <- as.matrix(test_raw_x_dt)
@@ -155,7 +227,7 @@ for(n in n.values){
     runtime_sec <- as.numeric(difftime(t1,t0,units="secs"))
     A <- n / N_train_raw
     B <- min(1, runtime_sec / 60)
-    C <- mean(preds != test_raw$label)
+    C <- mean(preds != test_local$label)
     Points <- 0.15*A + 0.10*B + 0.75*C
 
     results_model2 <- rbind(
@@ -172,7 +244,10 @@ res_m2 <- summarize_results_df(results_model2, "M2_knn3", "best")
 res_m2
 ```
 
-## Model 3
+
+### Model 3 — Decision Tree (rpart)
+
+This model fits a CART-style decision tree using `rpart` with moderate depth (`maxdepth = 20`) and a small complexity parameter (`cp = 0.001`) to allow reasonably rich structure. Decision trees recursively split the feature space to maximize class purity, producing an interpretable rule-based model. Advantages include transparency and fast inference, but trees can overfit high-dimensional data such as images, even with regularization. Although simple, this provides a useful baseline that can capture nonlinear interactions without requiring feature engineering.
 
 ```{r code_model3_development, eval=TRUE}
 results_model3 <- data.frame()
@@ -180,22 +255,23 @@ results_model3 <- data.frame()
 for(n in n.values){
   for(k in 1:iterations){
 
-    dat_nk <- train_raw[sample(.N, n)]
-
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
     dat_nk[, label := as.factor(label)]
-    test_raw[, label := factor(label, levels = levels(dat_nk$label))]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
 
     t0 <- Sys.time()
     mod <- rpart(label ~ ., data = dat_nk,
                  method="class",
                  control = rpart.control(cp=0.001, maxdepth=20, minsplit=20))
-    preds <- predict(mod, newdata=test_raw, type="class")
+    preds <- predict(mod, newdata=test_local, type="class")
     t1 <- Sys.time()
 
     runtime_sec <- as.numeric(difftime(t1,t0,units="secs"))
     A <- n / N_train_raw
     B <- min(1, runtime_sec / 60)
-    C <- mean(preds != test_raw$label)
+    C <- mean(preds != test_local$label)
     Points <- 0.15*A + 0.10*B + 0.75*C
 
     results_model3 <- rbind(
@@ -212,29 +288,27 @@ res_m3 <- summarize_results_df(results_model3, "M3_rpart", "best")
 res_m3
 ```
 
-
 ### Model 4 — Random Forest
+
+This model applies Random Forest, an ensemble of decision trees trained on bootstrap samples with random feature selection at each split. We set `ntree = 120` and `mtry = 7` (≈√49) to balance predictive power and computational cost. Random Forest generally improves stability and accuracy over a single tree by averaging many weak learners, reducing variance and mitigating overfitting. Its main advantages are strong baseline performance and robustness; however, it sacrifices interpretability and can be slower to train than simpler models.
 
 ```{r code_model4_development, eval=TRUE}
 results_model4 <- vector("list", length(n.values) * iterations)
 idx <- 0L
 
-# minimal, fixed hyperparameters to keep runtime low while maintaining accuracy
+
 rf_ntree <- 120
-rf_mtry  <- 7   # ~sqrt(49)
+rf_mtry  <- 7   
 
 for (n in n.values) {
   for (k in 1:iterations) {
 
-    # sample inside the block from train_raw only
-    dat_nk <- train_raw[sample(.N, n)]
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
 
-    # local factor alignment only (no global mutation)
     dat_nk[, label := as.factor(label)]
     test_local <- data.table::copy(test_raw)
     test_local[, label := factor(label, levels = levels(dat_nk$label))]
-
-    # time: train + predict
+    
     t0 <- proc.time()
     rf_model <- randomForest(
       x = dat_nk[, ..px_cols],
@@ -245,7 +319,6 @@ for (n in n.values) {
     rf_pred <- predict(rf_model, newdata = test_local[, ..px_cols])
     time_sec <- (proc.time() - t0)[["elapsed"]]
 
-    # scoring
     A <- n / N_train_raw
     B <- min(1, time_sec / 60)
     C <- mean(rf_pred != test_local$label)
@@ -265,45 +338,41 @@ results_model4 <- data.table::rbindlist(results_model4)
 ```
 
 ```{r load_model4}
-# summarize to a single scoreboard row (pick the best = lowest Points)
 res_m4 <- summarize_results_df(results_model4, "M4_randomForest", "best")
 res_m4
 ```
 
+### Model 5 — Elastic Net
 
-### Model 5 — Elastic Net (cleaned, minimal, scoreboard-ready)
+This model uses Elastic Net multinomial regression via **glmnet**, combining L1 and L2 penalties to encourage sparse yet stable solutions. We fix the mixing parameter at `alpha = 0.3`, favoring ridge-style shrinkage while still allowing variable selection. After fitting, predictions are generated on the testing set using the selected λ value. Elastic Net is attractive because it scales well to high-dimensional inputs and reduces overfitting, but the linear decision boundary limits performance relative to more flexible nonlinear models.
+
 
 ```{r code_model5_development, eval=TRUE}
 results_model5 <- vector("list", length(n.values) * iterations)
 idx <- 0L
 
-alpha_val <- 0.3  # elastic-net mixing (fixed, simple)
+alpha_val <- 0.3  
 
 for (n in n.values) {
   for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
 
-    # sample from train_raw only
-    dat_nk <- train_raw[sample(.N, n)]
-
-    # local factor alignment
     dat_nk[, label := as.factor(label)]
     test_local <- data.table::copy(test_raw)
     test_local[, label := factor(label, levels = levels(dat_nk$label))]
 
-    # matrices
     x_train <- as.matrix(dat_nk[, ..px_cols])
     y_train <- dat_nk$label
     x_test  <- as.matrix(test_local[, ..px_cols])
     y_test  <- test_local$label
 
-    # time: train + predict
     t0 <- proc.time()
     fit <- glmnet(x = x_train, y = y_train, alpha = alpha_val, family = "multinomial")
     lam <- if (!is.null(fit$lambda.min)) fit$lambda.min else tail(fit$lambda, 1L)
     preds <- predict(fit, newx = x_test, s = lam, type = "class")
     time_sec <- (proc.time() - t0)[["elapsed"]]
 
-    # scoring
     A <- n / N_train_raw
     B <- min(1, time_sec / 60)
     C <- mean(preds != y_test)
@@ -327,56 +396,51 @@ res_m5 <- summarize_results_df(results_model5, "M5_elasticNet", "best")
 res_m5
 ```
 
+### Model 6 — Neural Network (nnet)
 
-### Model 6 — Neural Net (cleaned, minimal, scoreboard-ready)
+This model is a single-hidden-layer feedforward network trained with softmax output using `nnet`. We use a small architecture (`size = 15`, `decay = 5e-4`, `maxit = 200`) and standardize inputs using training means and standard deviations to aid optimization. Neural nets can learn nonlinear decision boundaries and interactions, offering higher capacity than linear models. The trade-offs are sensitivity to hyperparameters, risk of overfitting, and longer training time than simpler baselines. Here it serves as a compact nonlinear model without the complexity of deep CNNs.
+
 
 ```{r code_model6_development, eval=TRUE}
 results_model6 <- vector("list", length(n.values) * iterations)
 idx <- 0L
 
-# tiny, fixed architecture to keep runtime low but decent accuracy
-nn_size  <- 15     # hidden units (≈ sqrt(49)*2)
-nn_decay <- 5e-4   # mild L2 regularization
-nn_maxit <- 200    # modest number of iterations
+
+nn_size  <- 15
+nn_decay <- 5e-4
+nn_maxit <- 200
 
 for (n in n.values) {
   for (k in 1:iterations) {
-
-    # sample from train_raw only
-    dat_nk <- train_raw[sample(.N, n)]
-
-    # local factor alignment
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
     dat_nk[, label := as.factor(label)]
     test_local <- data.table::copy(test_raw)
     test_local[, label := factor(label, levels = levels(dat_nk$label))]
-
-    # build matrices and standardize using training stats (helps optimization)
+    
     x_train <- as.matrix(dat_nk[, ..px_cols])
     x_test  <- as.matrix(test_local[, ..px_cols])
 
     mu  <- colMeans(x_train)
     sdv <- apply(x_train, 2, sd); sdv[sdv == 0] <- 1
-
     x_train_s <- sweep(sweep(x_train, 2, mu, "-"), 2, sdv, "/")
     x_test_s  <- sweep(sweep(x_test,  2, mu, "-"), 2, sdv, "/")
-
-    # one-hot targets for softmax
+    
     y_levels <- levels(dat_nk$label)
     y_mat <- nnet::class.ind(dat_nk$label)
 
-    # time: train + predict
     t0 <- proc.time()
     nn_fit <- nnet::nnet(
       x = x_train_s, y = y_mat,
       size = nn_size, decay = nn_decay, maxit = nn_maxit,
       softmax = TRUE, trace = FALSE
     )
-    prob <- predict(nn_fit, newdata = x_test_s, type = "raw")  # n x |classes|
+    prob <- predict(nn_fit, newdata = x_test_s, type = "raw")
     pred_idx <- max.col(prob, ties.method = "first")
     preds <- factor(y_levels[pred_idx], levels = y_levels)
     time_sec <- (proc.time() - t0)[["elapsed"]]
 
-    # scoring (same scheme)
     A <- n / N_train_raw
     B <- min(1, time_sec / 60)
     C <- mean(preds != test_local$label)
@@ -396,18 +460,19 @@ results_model6 <- data.table::rbindlist(results_model6)
 ```
 
 ```{r load_model6}
-# summarize to one row for the scoreboard (best = lowest Points)
 res_m6 <- summarize_results_df(results_model6, "M6_nnet", "best")
 res_m6
 ```
 
 ### Model 7 — XGBoost
 
+This model applies gradient-boosted decision trees using `xgboost` with a multinomial objective for multi-class prediction. We use modest hyperparameters—learning rate `eta = 0.1`, tree depth `max_depth = 4`, and `80` boosting rounds—to balance accuracy and speed. The method converts factor labels into integer class IDs and predicts class probabilities, then assigns classes via maximum probability. XGBoost handles nonlinear boundaries, feature interactions, and noise well, often outperforming simpler tree models. Its main drawbacks are sensitivity to hyperparameters and higher computational cost compared to single trees or linear models.
+
 ```{r code_model7_development, eval=TRUE}
 results_model7 <- vector("list", length(n.values) * iterations)
 idx <- 0L
 
-# lean, fast defaults
+
 xgb_eta       <- 0.1
 xgb_max_depth <- 4
 xgb_subsample <- 0.8
@@ -417,25 +482,25 @@ xgb_rounds    <- 80
 for (n in n.values) {
   for (k in 1:iterations) {
 
-    # sample from train_raw only
-    dat_nk <- train_raw[sample(.N, n)]
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
 
-    # local factor alignment only
+    
     dat_nk[, label := as.factor(label)]
     test_local <- data.table::copy(test_raw)
     test_local[, label := factor(label, levels = levels(dat_nk$label))]
 
-    # matrices + integer labels 0..K-1
+    
     x_train <- as.matrix(dat_nk[, ..px_cols])
     x_test  <- as.matrix(test_local[, ..px_cols])
-    y_levels <- levels(dat_nk$label)
-    num_class <- length(y_levels)
+    y_levels   <- levels(dat_nk$label)
+    num_class  <- length(y_levels)
     y_train_int <- as.integer(dat_nk$label) - 1L
 
     dtrain <- xgboost::xgb.DMatrix(data = x_train, label = y_train_int)
     dtest  <- xgboost::xgb.DMatrix(data = x_test)
 
-    # time: train + predict
+    
     t0 <- proc.time()
     mod <- xgboost::xgb.train(
       params = list(
@@ -451,15 +516,15 @@ for (n in n.values) {
       nrounds = xgb_rounds,
       verbose = 0
     )
-    prob <- predict(mod, dtest)  # length = nrow(test_local)*num_class
+    prob <- predict(mod, dtest)
     time_sec <- (proc.time() - t0)[["elapsed"]]
 
-    # probs -> classes
+    
     prob_mat <- matrix(prob, nrow = nrow(test_local), ncol = num_class, byrow = TRUE)
     pred_idx <- max.col(prob_mat, ties.method = "first")
     preds <- factor(y_levels[pred_idx], levels = y_levels)
 
-    # scoring
+    
     A <- n / N_train_raw
     B <- min(1, time_sec / 60)
     C <- mean(preds != test_local$label)
@@ -479,127 +544,353 @@ results_model7 <- data.table::rbindlist(results_model7)
 ```
 
 ```{r load_model7}
-# summarize to a single scoreboard row (best = lowest Points)
 res_m7 <- summarize_results_df(results_model7, "M7_xgboost", "best")
 res_m7
 ```
 
+### Model 8 — Gradient Boosting (gbm)
 
+This model uses gradient-boosted trees via `gbm` with a multinomial loss to handle the ten classes. We use modest settings—`n.trees = 500`, `interaction.depth = 3`, `shrinkage = 0.05`, and `bag.fraction = 0.8`—to balance accuracy and runtime. Predictions are produced as class probabilities across trees and converted to labels by taking the maximum probability. GBM captures nonlinearities and interactions better than single trees and often rivals Random Forest and XGBoost on tabular data. Its drawbacks are sensitivity to hyperparameters and longer training times than linear models.
 
-### Model 8
 
 ```{r code_model8_development, eval=TRUE}
-train_raw[, label := as.factor(label)]
-test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+results_model8 <- vector("list", length(n.values) * iterations)
+idx <- 0L
 
-lbl_levels <- levels(train_raw$label)
-y_train_num <- as.integer(train_raw$label) - 1L
+gbm_params <- list(
+  n.trees = 500,
+  interaction.depth = 3,
+  shrinkage = 0.05,
+  n.minobsinnode = 10,
+  bag.fraction = 0.8
+)
 
-gbm_params <- list(n.trees=500, interaction.depth=3, shrinkage=0.05,
-                   n.minobsinnode=10, bag.fraction=0.8)
+for (n in n.values) {
+  for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
 
-t0 <- proc.time()
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    lbl_levels  <- levels(dat_nk$label)
+    K <- length(lbl_levels)
+    y_train_num <- as.integer(dat_nk$label) - 1L
+
+    train_df <- data.frame(y_train_num = y_train_num, dat_nk[, ..px_cols])
+    test_df  <- as.data.frame(test_local[, ..px_cols])
+
+    t0 <- proc.time()
+    gbm_fit <- gbm::gbm(
+      formula = y_train_num ~ .,
+      data    = train_df,
+      distribution = "multinomial",
+      n.trees = gbm_params$n.trees,
+      interaction.depth = gbm_params$interaction.depth,
+      shrinkage = gbm_params$shrinkage,
+      n.minobsinnode = gbm_params$n.minobsinnode,
+      bag.fraction = gbm_params$bag.fraction,
+      train.fraction = 1.0,
+      verbose = FALSE
+    )
+
+    pred_prob <- predict(
+      gbm_fit,
+      newdata = test_df,
+      n.trees = gbm_params$n.trees,
+      type = "response"
+    )
+
+    dims <- dim(pred_prob)
+    if (!is.null(dims) && length(dims) == 3) {
+      prob_mat <- pred_prob[, , dims[3], drop = TRUE]
+    } else if (!is.null(dims) && length(dims) == 2) {
+      prob_mat <- pred_prob
+    } else {
+      prob_mat <- matrix(pred_prob, nrow = nrow(test_local), ncol = K, byrow = FALSE)
+    }
+
+    pred_idx <- max.col(prob_mat, ties.method = "first")
+    preds <- factor(lbl_levels[pred_idx], levels = lbl_levels)
+
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(preds != test_local$label)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model8[[idx]] <- data.table::data.table(
+      Model = "Model8_gbm",
+      SampleSize = n, Iter = k,
+      n.trees = gbm_params$n.trees,
+      depth = gbm_params$interaction.depth,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model8 <- data.table::rbindlist(results_model8)
 ```
 
 ```{r load_model8}
-gbm_fit <- gbm(y_train_num ~ ., data=data.frame(y_train_num=y_train_num, train_raw[, ..px_cols]),
-               distribution="multinomial",
-               n.trees=gbm_params$n.trees, interaction.depth=gbm_params$interaction.depth,
-               shrinkage=gbm_params$shrinkage, n.minobsinnode=gbm_params$n.minobsinnode,
-               bag.fraction=gbm_params$bag.fraction, train.fraction=1.0, verbose=FALSE)
-
-pred_prob <- predict(gbm_fit, newdata=as.data.frame(test_raw[, ..px_cols]),
-                     n.trees=gbm_params$n.trees, type="response")
-prob_mat <- matrix(pred_prob, nrow=nrow(test_raw), ncol=length(lbl_levels))
-pred_idx <- max.col(prob_mat, ties.method="first")
-pred_m8 <- factor(lbl_levels[pred_idx], levels=lbl_levels)
-
-time_sec <- (proc.time() - t0)[["elapsed"]]
-A <- nrow(train_raw) / 60000
-B <- min(1, time_sec / 60)
-C <- mean(pred_m8 != test_raw$label)
-Points <- 0.15*A + 0.10*B + 0.75*C
-
-res_m8 <- mk_res("M8_gbm", A,B,C,Points,time_sec)
+res_m8 <- summarize_results_df(results_model8, "M8_gbm", "best")
 res_m8
 ```
 
-### Model 9
+### Model 9 — Support Vector Machine (RBF)
+
+This model uses an SVM with a radial basis function kernel, which maps inputs into a higher-dimensional space to separate classes with nonlinear decision boundaries. We set `cost = 1` and `gamma = 1/49` (inverse of the feature count) for a simple, stable baseline without heavy tuning. Features are kept in their original scale but `e1071::svm` applies internal scaling, and predictions are made directly on the held-out test set. SVMs are strong at handling complex boundaries and can perform well with limited samples, but they can be slower to train and are sensitive to hyperparameter choices. Interpretability is limited compared to linear models or trees.
 
 ```{r code_model9_development, eval=TRUE}
-train_raw[, label := as.factor(label)]
-test_raw[,  label := factor(label, levels = levels(train_raw$label))]
-
-x_train_df <- as.data.frame(train_raw[, ..px_cols])
-x_test_df  <- as.data.frame(test_raw[, ..px_cols])
-y_train    <- train_raw$label
-y_test     <- test_raw$label
+results_model9 <- vector("list", length(n.values) * iterations)
+idx <- 0L
 
 svm_cost  <- 1
-svm_gamma <- 1/49
-t0 <- proc.time()
+svm_gamma <- 1/49  
+
+for (n in n.values) {
+  for (k in 1:iterations) {
+
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
+
+    x_train_df <- as.data.frame(dat_nk[, ..px_cols])
+    x_test_df  <- as.data.frame(test_local[, ..px_cols])
+    y_train    <- dat_nk$label
+    y_test     <- test_local$label
+
+    t0 <- proc.time()
+    svm_mod <- e1071::svm(
+      x = x_train_df, y = y_train,
+      kernel = "radial",
+      cost = svm_cost,
+      gamma = svm_gamma,
+      scale = TRUE
+    )
+    pred_m9 <- predict(svm_mod, newdata = x_test_df)
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(pred_m9 != y_test)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model9[[idx]] <- data.table::data.table(
+      Model = "Model9_svm_rbf",
+      SampleSize = n, Iter = k,
+      cost = svm_cost, gamma = svm_gamma,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model9 <- data.table::rbindlist(results_model9)
 ```
 
 ```{r load_model9}
-svm_mod <- e1071::svm(x=x_train_df, y=y_train, kernel="radial",
-                       cost=svm_cost, gamma=svm_gamma, scale=TRUE)
-pred_m9 <- predict(svm_mod, newdata=x_test_df)
-
-time_sec <- (proc.time() - t0)[["elapsed"]]
-A <- nrow(train_raw) / 60000
-B <- min(1, time_sec / 60)
-C <- mean(pred_m9 != y_test)
-Points <- 0.15*A + 0.10*B + 0.75*C
-
-res_m9 <- mk_res("M9_svm_rbf", A,B,C,Points,time_sec)
+res_m9 <- summarize_results_df(results_model9, "M9_svm_rbf", "best")
 res_m9
 ```
 
-### Model 10
+
+### Model 10 — Naive Bayes
+
+This model applies a Naive Bayes classifier, which assumes conditional independence among pixel features given the class. The method is attractive because it trains very quickly and requires little parameter tuning; here, we simply fit using the default implementation in `e1071::naiveBayes`. Predictions are generated directly on the standardized test set, and misclassification rates are computed. Naive Bayes is computationally efficient and can perform reasonably when features are weakly correlated, but its independence assumption is unrealistic for image data, which limits predictive accuracy. As a result, it is best viewed as a simple baseline rather than a competitive vision model.
 
 ```{r code_model10_development, eval=TRUE}
-train_raw[, label := as.factor(label)]
-test_raw[,  label := factor(label, levels = levels(train_raw$label))]
+results_model10 <- vector("list", length(n.values) * iterations)
+idx <- 0L
 
-x_train_df <- as.data.frame(train_raw[, ..px_cols])
-x_test_df  <- as.data.frame(test_raw[, ..px_cols])
-y_train    <- train_raw$label
-y_test     <- test_raw$label
+for (n in n.values) {
+  for (k in 1:iterations) {
+    
+    dat_nk <- data.table::copy(dev_sets[[as.character(n)]][[k]])
+    
+    dat_nk[, label := as.factor(label)]
+    test_local <- data.table::copy(test_raw)
+    test_local[, label := factor(label, levels = levels(dat_nk$label))]
 
-t0 <- proc.time()
+    x_train_df <- as.data.frame(dat_nk[, ..px_cols])
+    x_test_df  <- as.data.frame(test_local[, ..px_cols])
+    y_train    <- dat_nk$label
+    y_test     <- test_local$label
+
+    t0 <- proc.time()
+    nb_mod <- e1071::naiveBayes(x = x_train_df, y = y_train)
+    pred_m10 <- predict(nb_mod, newdata = x_test_df)
+    time_sec <- (proc.time() - t0)[["elapsed"]]
+
+    A <- n / N_train_raw
+    B <- min(1, time_sec / 60)
+    C <- mean(pred_m10 != y_test)
+    Points <- 0.15*A + 0.10*B + 0.75*C
+
+    idx <- idx + 1L
+    results_model10[[idx]] <- data.table::data.table(
+      Model = "Model10_naive_bayes",
+      SampleSize = n, Iter = k,
+      A = A, B = B, C = C, Points = Points, runtime = time_sec
+    )
+  }
+}
+
+results_model10 <- data.table::rbindlist(results_model10)
 ```
 
 ```{r load_model10}
-nb_mod <- e1071::naiveBayes(x = x_train_df, y = y_train)
-pred_m10 <- predict(nb_mod, newdata = x_test_df)
-
-time_sec <- (proc.time() - t0)[["elapsed"]]
-A <- nrow(train_raw) / 60000
-B <- min(1, time_sec / 60)
-C <- mean(pred_m10 != y_test)
-Points <- 0.15*A + 0.10*B + 0.75*C
-
-res_m10 <- mk_res("M10_naive_bayes", A,B,C,Points,time_sec)
+res_m10 <- summarize_results_df(results_model10, "M10_naive_bayes", "best")
 res_m10
 ```
 
-## Scoreboard
 
-```{r scoreboard}
-res_names <- ls(pattern = "^res_m\\d+$")
-res_list <- lapply(res_names, function(n) if (exists(n)) get(n) else NULL)
-results <- Filter(Negate(is.null), res_list)
+## Preliminary Results (all 90 fits)
 
-if (length(results) == 0) {
-  cat("No model summaries found. Knit the model chunks first.")
+```{r preliminary_results}
+
+res_names <- ls(pattern = "^results_model\\d+$")
+res_tbls  <- if (length(res_names)) mget(res_names, inherits = TRUE) else list()
+
+
+res_tbls <- Filter(function(x) is.data.frame(x) || data.table::is.data.table(x), res_tbls)
+
+if (!length(res_tbls)) {
+  cat("No per-fit results found. Knit the model chunks first.")
 } else {
-  dt <- data.table::rbindlist(lapply(results, data.table::as.data.table), fill = TRUE)
-  data.table::setorder(dt, Points)
-  knitr::kable(dt, digits = 4, caption = "Scoreboard")
+
+  dt_all <- data.table::rbindlist(lapply(res_tbls, data.table::as.data.table), fill = TRUE)
+
+  if (all(c("SampleSize","Iter") %in% names(dt_all))) {
+    dt_all[, Data := sprintf("dat_%d_%d", SampleSize, Iter)]
+  } else {
+    dt_all[, Data := NA_character_]
+  }
+
+  if (!"time_sec" %in% names(dt_all) && "runtime" %in% names(dt_all)) {
+    data.table::setnames(dt_all, "runtime", "time_sec")
+  }
+  
+  data.table::setorder(dt_all, Model, SampleSize, Iter)
+  num_cols <- intersect(c("A","B","C","Points"), names(dt_all))
+  if (length(num_cols)) {
+    dt_all[, (num_cols) := lapply(.SD, function(x) round(x, 4)), .SDcols = num_cols]
+  }
+  
+  cols_disp <- c("Model","SampleSize","Data","A","B","C","Points")
+  cols_disp <- intersect(cols_disp, names(dt_all))
+
+  DT::datatable(
+    dt_all[, ..cols_disp],
+    rownames = FALSE,
+    options = list(pageLength = 30, order = list(list(0, "asc"))),
+    caption = "Preliminary Results (all 90 fits: 10 models × 3 sizes × 3 draws)"
+  )
 }
 ```
 
+
+## Scoreboard (30 rows = averages by Model × Sample Size)
+
+```{r scoreboard_avg}
+
+if (!exists("dt_all")) {
+  res_names <- ls(pattern = "^results_model\\d+$")
+  res_tbls  <- if (length(res_names)) mget(res_names, inherits = TRUE) else list()
+  res_tbls  <- Filter(function(x) is.data.frame(x) || data.table::is.data.table(x), res_tbls)
+  if (length(res_tbls)) {
+    dt_all <- data.table::rbindlist(lapply(res_tbls, data.table::as.data.table), fill = TRUE)
+  }
+}
+
+if (!exists("dt_all")) {
+  cat("No per-fit results found. Knit the model chunks first.")
+} else {
+  need <- c("Model","SampleSize","A","B","C","Points")
+  if (!all(need %in% names(dt_all))) {
+    stop("Missing required columns in results to compute scoreboard.")
+  }
+  
+  sb <- dt_all[, .(
+    A = mean(A, na.rm = TRUE),
+    B = mean(B, na.rm = TRUE),
+    C = mean(C, na.rm = TRUE),
+    Points = mean(Points, na.rm = TRUE)
+  ), by = .(Model, SampleSize)]
+
+  data.table::setorder(sb, Points)
+  sb[, Rank := .I]
+  sb[, `:=`(
+    A      = round(A, 4),
+    B      = round(B, 4),
+    C      = round(C, 4),
+    Points = round(Points, 4)
+  )]
+
+  sb_disp <- sb[, .(Rank, Model, SampleSize, A, B, C, Points)]
+
+  DT::datatable(
+    sb_disp,
+    rownames = FALSE,
+    options = list(pageLength = 30, order = list(list(0, "asc"))),
+    caption = "Scoreboard (averages over 3 draws for each Model × Sample Size)"
+  )
+}
+```
+
+
+## Summary of Key Results
+
+The combined table shows clear ranking patterns across models and sample sizes:
+
+* **Random Forest** consistently achieved the **lowest error rates** (≈19–20% at the largest sample size), producing the **best overall scores (lowest Points)**. It also trained quickly—sub-second at (n=500), and well under a second at (n=2000).
+
+* **XGBoost** reached similar accuracy to Random Forest but with moderately longer runtimes. Error rates averaged ≈19–22% depending on sample size, keeping it among the top three methods.
+
+* **SVM (RBF)** matched the strong error profile of Random Forest and XGBoost, typically scoring ~20–23% error. Runtime was moderate but stable and comfortably below the one-minute threshold.
+
+* **k-Nearest Neighbors (k=3)** performed better than classical methods but worse than the top three models, with error ~22–28%. Its runtime remained short but inference scales poorly as data grows.
+
+* **Elastic Net** and the small **Neural Network** delivered mid-range accuracy (~25–29% error) with predictable runtime but no competitive advantage over tree-based methods.
+
+* **Multinomial logistic regression (Model 1)** and **rpart** offered higher error rates (~26–32%+) and served mainly as baselines.
+
+* **Naive Bayes** produced the highest error overall (~43–53%), reflecting strong independence-assumption mismatch with pixel-based data.
+
+* **GBM** reached respectable accuracy (~19–25%) but incurred extremely long runtimes—10–20× slower than Random Forest—reducing its overall usefulness under the scoring system.
+
+As sample size increased from 500 → 1000 → 2000, nearly all models saw reduced error and improved Points. However, only the top three (Random Forest, XGBoost, SVM) maintained leading performance at every size while remaining computationally manageable. Random Forest achieved the best balance of accuracy and runtime across all configurations.
+
 ## Discussion
+
+This evaluation compared ten supervised learning approaches across multiple sample sizes using a unified scoring scheme emphasizing classification accuracy, moderate weight on training time, and a small bonus for larger training sets. The goal was not only to identify the strongest performer but also to illustrate the range of tools available and how their trade-offs manifest at scale. All models were tested against a consistent development-test framework to ensure comparability.
+
+Across the board, error rate dominated overall ranking. Models that both generalized well and executed quickly scored highest. Three techniques—**Random Forest, XGBoost, and SVM (RBF kernel)**—formed a clear top tier across all dataset sizes. They consistently reached the lowest error rates (≈19–21% at the largest sample size), and their relative speed kept them highly ranked once runtime penalties were applied. From a practical engineering perspective, these are the most promising candidates for future refinement, deployment, or integration into production workflows.
+
+Random Forest emerged as the most balanced method: strong accuracy, excellent runtime, and minimal tuning requirements. It is easy to parallelize and tends to degrade gracefully when run with only moderate parameter care. XGBoost reached similar accuracy but required longer training times; it remains a strong choice when more aggressive tuning or hardware acceleration is available. SVM with an RBF kernel delivered similar predictive performance at competitive speed and is comparatively simple to configure, though model sizes can grow rapidly with sample size.
+
+A second tier—**k-Nearest Neighbors, Elastic Net, and a small Neural Network**—performed reasonably but offered strictly worse trade-offs. These models may still be appealing in engineering contexts that prioritize simplicity, well-understood failure modes, or rapid iteration. k-NN is trivial to implement but scales poorly in memory and query cost. Elastic Net is stable and interpretable but accuracy lagged top methods. The small neural network showed no clear advantage over tree-based models in this domain.
+
+Classical approaches—**multinomial logistic regression, decision trees (rpart), and Naive Bayes**—served as lightweight baselines. Their error rates were substantially worse, particularly Naive Bayes, whose simplifying assumptions do not hold for image-like pixel inputs. These methods remain useful for sanity-checks or rapid prototyping but would not be competitive without substantial structural modifications.
+
+GBM warranted special mention: its accuracy was competitive, but training time was 10–20× slower than Random Forest at larger sample sizes. Under the current scoring system, this made it non-viable. If runtime constraints were relaxed—and particularly if GPU resources or aggressive tree depth tuning were available—it could re-enter consideration, but it is clearly dominated under today’s constraints.
+
+Engineers evaluating next steps should consider how production requirements shape algorithm choice. If the main objective is maximum performance at modest computational cost, Random Forest or XGBoost are strong defaults. If integration simplicity, maintainability, or predictable memory footprint is more important, SVM or Elastic Net may be easier to manage. Neural networks may warrant re-evaluation if richer input representations or feature learning become important.
+
+In summary:
+
+* Highest-value candidates: **Random Forest → XGBoost → SVM**
+* Middle-tier: **k-NN, Elastic Net, small NN**
+* Baselines only: **Logistic, rpart, Naive Bayes**
+* Computationally dominated: **GBM** (good accuracy, impractical runtime under current constraints)
+
+Future work can extend these experiments to larger architectures, model compression strategies, and feature learning methods. However, based on current constraints and results, engineers seeking a first production-quality model should begin with **Random Forest**, then consider **XGBoost or SVM** depending on hardware, latency, and tuning appetite.
+
 
 ## Model Development Responsibilities
 
