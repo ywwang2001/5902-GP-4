@@ -1,0 +1,139 @@
+---
+title: "Image Processing:  Additional Analyses"
+author: ""
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r seed}
+set.seed(41)
+```
+
+```{r libraries}
+library(data.table)
+library(DT)
+library(here)   # needed to import Part 1
+```
+
+```{r constants}
+
+```
+
+```{r functions}
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+```
+
+```{r load_data}
+# Import Part 1 so we can reuse dt_all, dev_sets, test_raw, px_cols, etc.
+knitr::knit_child(here::here("image_processing.Rmd"), quiet = TRUE)
+
+# Sanity: required objects should exist after sourcing Part 1
+stopifnot(exists("dt_all"), exists("dev_sets"), exists("test_raw"), exists("px_cols"))
+
+# Pick the best single run (lowest Points)
+best_row  <- dt_all[order(Points)][1]
+best_n    <- best_row$SampleSize
+best_iter <- best_row$Iter
+best_model<- best_row$Model
+
+# Recreate the exact development sample used by that best run
+dat_best   <- data.table::copy(dev_sets[[as.character(best_n)]][[best_iter]])
+test_local <- data.table::copy(test_raw)
+```
+
+```{r explore_data, eval = FALSE}
+# Optional quick peek:
+# head(dt_all)
+# best_row
+```
+
+```{r clean_data}
+# Align factor levels
+dat_best[,   label := factor(label)]
+test_local[, label := factor(label, levels = levels(dat_best$label))]
+```
+
+# {.tabset}
+
+## Introduction
+
+## Predictive Accuracy by Product
+
+This addendum analyzes **predictive accuracy by product category** for the **single best model** found in Part 1 (lowest overall *Points*).
+Using the exact development subset that produced the winning score, we refit that model, predict on the fixed test set, and compute **per-class accuracy** (share of test images correctly classified within each label).
+These class-level results reveal which product types are easiest/hardest to recognize under the current 49-pixel representation and baseline hyperparameters.
+
+```{r per_product_accuracy}
+# Lightweight switcher for the top contenders in Part 1 (RF / XGBoost / SVM).
+predict_best <- function(model_name, train_dt, test_dt){
+  Xtr <- as.matrix(train_dt[, ..px_cols])
+  Xte <- as.matrix(test_dt[,  ..px_cols])
+
+  if (grepl("randomForest", model_name, ignore.case = TRUE)) {
+    fit <- randomForest::randomForest(
+      x = train_dt[, ..px_cols],
+      y = train_dt$label,
+      ntree = 120, mtry = 7
+    )
+    predict(fit, newdata = test_dt[, ..px_cols])
+
+  } else if (grepl("xgboost", model_name, ignore.case = TRUE)) {
+    lv <- levels(train_dt$label)
+    y  <- as.integer(train_dt$label) - 1L
+    dtr <- xgboost::xgb.DMatrix(Xtr, label = y)
+    dte <- xgboost::xgb.DMatrix(Xte)
+    fit <- xgboost::xgb.train(
+      params = list(objective="multi:softprob", num_class=length(lv),
+                    eta=0.1, max_depth=4, subsample=0.8, colsample_bytree=0.8),
+      data = dtr, nrounds = 80, verbose = 0
+    )
+    pr  <- predict(fit, dte)
+    factor(lv[max.col(matrix(pr, nrow = nrow(test_dt), byrow = TRUE))], levels = lv)
+
+  } else if (grepl("svm", model_name, ignore.case = TRUE)) {
+    fit <- e1071::svm(
+      x = as.data.frame(train_dt[, ..px_cols]),
+      y = train_dt$label,
+      kernel = "radial", cost = 1, gamma = 1/49, scale = TRUE
+    )
+    predict(fit, newdata = as.data.frame(test_dt[, ..px_cols]))
+
+  } else {
+    stop("Model handler not implemented for: ", model_name)
+  }
+}
+
+# Predict with the winning model
+pred <- predict_best(best_model, dat_best, test_local)
+
+# Per-product accuracy table
+acc_by_product <- data.table(label = test_local$label, pred = pred)[
+  , .(n = .N, accuracy = mean(label == pred)), by = label][
+  order(-accuracy)]
+
+acc_by_product[, accuracy := round(accuracy, 4)]
+
+DT::datatable(
+  acc_by_product,
+  rownames = FALSE,
+  options = list(pageLength = 10),
+  caption = "Predictive Accuracy by Product (best model, exact best-run dev subset)"
+)
+```
+
+### Interpretation
+
+Performance varies meaningfully by class. Categories with **distinct silhouettes/textures** (e.g., boots or sneakers) tend to score higher accuracy, while **look-alike apparel** (e.g., shirt vs. pullover) is more confusable in a 7×7 pixel grid.
+To improve weaker classes, consider (i) **feature learning** (e.g., CNNs or embeddings), (ii) **targeted augmentation** to diversify edge cases, and (iii) **class-aware tuning** or cost-sensitive training so that rare/confusable categories receive proportionally more modeling attention.
+
+## Independent Investigation
+
+
