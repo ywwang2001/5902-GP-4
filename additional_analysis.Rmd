@@ -135,5 +135,82 @@ Performance varies meaningfully by class. Categories with **distinct silhouettes
 To improve weaker classes, consider (i) **feature learning** (e.g., CNNs or embeddings), (ii) **targeted augmentation** to diversify edge cases, and (iii) **class-aware tuning** or cost-sensitive training so that rare/confusable categories receive proportionally more modeling attention.
 
 ## Independent Investigation
+In addition to model‐level accuracy analysis, we conducted a self-directed exploration of the MNIST-Fashion dataset to uncover the underlying causes of classification difficulty and identify actionable improvements for the client. Three complementary analyses were performed:
+(1) misclassification patterns via a confusion matrix,
+(2) visual similarity using PCA embeddings, and
+(3) the impact of brightness and contrast on prediction accuracy.
 
+1. Confusion Matrix — Understanding Misclassifications
+
+A normalized confusion matrix reveals that errors are highly class-dependent. Footwear categories (sneakers, ankle boots) show strong diagonal dominance, while shirts and pullovers often overlap, confirming that visually similar garments drive most misclassifications. These results suggest the client could group similar items (e.g., all upper-body garments) or improve data labeling consistency to reduce error rates without complex retraining.
+```{r}
+library(caret)
+cm <- confusionMatrix(pred, test_local$label)
+cm_df <- as.data.frame(cm$table)
+cm_df <- cm_df / tapply(cm_df$Freq, cm_df$Reference, sum)[cm_df$Reference]
+
+library(ggplot2)
+ggplot(cm_df, aes(Reference, Prediction, fill = Freq)) +
+geom_tile(color = "white") +
+scale_fill_gradient(low = "white", high = "#2b83ba") +
+theme_minimal() +
+labs(title = "Normalized Confusion Matrix", x = "Actual Label", y = "Predicted Label")
+
+```
+
+2. PCA Visualization — Exploring Visual Similarity
+
+To inspect feature separability, we applied Principal Component Analysis (PCA) to the 49-pixel vectors. The first two components capture ~55% of the total variance, producing clusters that are tight and distinct for bags and shoes, but highly overlapping for shirts, pullovers, and coats.
+This highlights that even with good model tuning, data structure limits separability, implying potential gains from CNN-based feature extraction or higher-resolution data collection.
+
+```{r}
+library(ggplot2)
+
+pca <- prcomp(test_local[, ..px_cols], scale. = TRUE)
+pca_df <- data.frame(pca$x[,1:2], label = test_local$label)
+
+ggplot(pca_df, aes(PC1, PC2, color = label)) +
+geom_point(alpha = 0.5, size = 2) +
+theme_minimal() +
+labs(title = "PCA of 49-Pixel Feature Space", subtitle = "Overlapping classes reveal visual similarity limits")
+
+```
+3. Brightness & Contrast Effects — Image Quality Matters
+
+Next, we quantified image brightness (mean pixel value) and contrast (pixel variance) to see if image intensity influences model success. Correctly classified samples tend to have moderate brightness and higher contrast, suggesting that poor lighting or low contrast reduces class separability.
+This finding offers a simple operational fix: ensure consistent photo capture lighting or normalize contrast pre-training.
+
+```{r}
+test_local[, `:=`(
+mean_brightness = rowMeans(.SD),
+contrast = apply(.SD, 1, sd)
+), .SDcols = px_cols]
+
+test_local[, correct := (label == pred)]
+
+agg <- test_local[, .(
+brightness = mean(mean_brightness),
+contrast = mean(contrast)
+), by = correct]
+
+knitr::kable(agg, caption = "Average Brightness & Contrast by Classification Outcome")
+
+ggplot(test_local, aes(mean_brightness, contrast, color = correct)) +
+geom_point(alpha = 0.4) +
+theme_minimal() +
+labs(title = "Brightness–Contrast Relationship",
+subtitle = "Correctly classified images cluster at moderate brightness & higher contrast",
+x = "Mean Brightness", y = "Contrast")
+
+```
+
+Across these analyses, three insights emerge:
+
+Most misclassifications arise from visually similar upper-body garments. Consider merging or relabeling these for business-facing applications.
+
+Low-contrast images consistently reduce accuracy — implement preprocessing normalization or controlled photo lighting.
+
+Feature separability is the bottleneck, not model tuning — CNN-based embeddings or transfer learning could yield substantial gains.
+
+Overall, this analysis clarifies that the current random forest/XGBoost baseline is already near the ceiling imposed by coarse 7×7 features. The next frontier for improvement lies in better visual representation and input quality, not model complexity.
 
