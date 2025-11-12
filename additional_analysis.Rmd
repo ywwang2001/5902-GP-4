@@ -1,6 +1,7 @@
 ---
 title: "Image Processing:  Additional Analyses"
-author: ""
+author: "Clara Dragut, Yuwen Wang, Ziyao Wang"
+date: "Nov 2025"
 output: html_document
 ---
 
@@ -15,7 +16,7 @@ set.seed(41)
 ```{r libraries}
 library(data.table)
 library(DT)
-library(here)   # needed to import Part 1
+library(here)
 ```
 
 ```{r constants}
@@ -32,38 +33,28 @@ round.numerics <- function(x, digits){
 ```
 
 ```{r load_data}
-# Import Part 1 so we can reuse dt_all, dev_sets, test_raw, px_cols, etc.
-knitr::knit_child(here::here("image_processing.Rmd"), quiet = TRUE)
+source(here::here("image_processing.R"))
 
-# Sanity: required objects should exist after sourcing Part 1
 stopifnot(exists("dt_all"), exists("dev_sets"), exists("test_raw"), exists("px_cols"))
 
-# Pick the best single run (lowest Points)
 best_row  <- dt_all[order(Points)][1]
 best_n    <- best_row$SampleSize
 best_iter <- best_row$Iter
 best_model<- best_row$Model
 
-# Recreate the exact development sample used by that best run
 dat_best   <- data.table::copy(dev_sets[[as.character(best_n)]][[best_iter]])
 test_local <- data.table::copy(test_raw)
 ```
 
 ```{r explore_data, eval = FALSE}
-# Optional quick peek:
-# head(dt_all)
-# best_row
+
 ```
 
 ```{r clean_data}
-# Align factor levels
 dat_best[,   label := factor(label)]
 test_local[, label := factor(label, levels = levels(dat_best$label))]
 ```
 
-# {.tabset}
-
-## Introduction
 
 ## Predictive Accuracy by Product
 
@@ -72,7 +63,6 @@ Using the exact development subset that produced the winning score, we refit tha
 These class-level results reveal which product types are easiest/hardest to recognize under the current 49-pixel representation and baseline hyperparameters.
 
 ```{r per_product_accuracy}
-# Lightweight switcher for the top contenders in Part 1 (RF / XGBoost / SVM).
 predict_best <- function(model_name, train_dt, test_dt){
   Xtr <- as.matrix(train_dt[, ..px_cols])
   Xte <- as.matrix(test_dt[,  ..px_cols])
@@ -111,10 +101,8 @@ predict_best <- function(model_name, train_dt, test_dt){
   }
 }
 
-# Predict with the winning model
 pred <- predict_best(best_model, dat_best, test_local)
 
-# Per-product accuracy table
 acc_by_product <- data.table(label = test_local$label, pred = pred)[
   , .(n = .N, accuracy = mean(label == pred)), by = label][
   order(-accuracy)]
@@ -135,6 +123,7 @@ Performance varies meaningfully by class. Categories with **distinct silhouettes
 To improve weaker classes, consider (i) **feature learning** (e.g., CNNs or embeddings), (ii) **targeted augmentation** to diversify edge cases, and (iii) **class-aware tuning** or cost-sensitive training so that rare/confusable categories receive proportionally more modeling attention.
 
 ## Independent Investigation
+
 In addition to model‐level accuracy analysis, we conducted a self-directed exploration of the MNIST-Fashion dataset to uncover the underlying causes of classification difficulty and identify actionable improvements for the client. Three complementary analyses were performed:
 (1) misclassification patterns via a confusion matrix,
 (2) visual similarity using PCA embeddings, and
@@ -143,6 +132,7 @@ In addition to model‐level accuracy analysis, we conducted a self-directed exp
 1. Confusion Matrix — Understanding Misclassifications
 
 A normalized confusion matrix reveals that errors are highly class-dependent. Footwear categories (sneakers, ankle boots) show strong diagonal dominance, while shirts and pullovers often overlap, confirming that visually similar garments drive most misclassifications. These results suggest the client could group similar items (e.g., all upper-body garments) or improve data labeling consistency to reduce error rates without complex retraining.
+
 ```{r}
 library(caret)
 cm <- confusionMatrix(pred, test_local$label)
@@ -175,6 +165,7 @@ theme_minimal() +
 labs(title = "PCA of 49-Pixel Feature Space", subtitle = "Overlapping classes reveal visual similarity limits")
 
 ```
+
 3. Brightness & Contrast Effects — Image Quality Matters
 
 Next, we quantified image brightness (mean pixel value) and contrast (pixel variance) to see if image intensity influences model success. Correctly classified samples tend to have moderate brightness and higher contrast, suggesting that poor lighting or low contrast reduces class separability.

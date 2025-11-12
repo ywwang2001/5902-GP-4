@@ -1,0 +1,139 @@
+---
+title: "Image Processing:  Training Material"
+author: "Clara Dragut, Yuwen Wang, Ziyao Wang"
+date: "Nov 2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r seed}
+set.seed(41)
+```
+
+```{r libraries}
+library(data.table)
+library(here)
+library(knitr)
+library(rmarkdown)
+library(DT)
+```
+
+```{r constants}
+
+```
+
+```{r functions}
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+```
+
+```{r load_data}
+train_path <- here::here("data", "MNIST-fashion training set-49.csv")
+test_path  <- here::here("data", "MNIST-fashion testing set-49.csv")
+
+train_raw <- data.table::fread(train_path)
+test_raw  <- data.table::fread(test_path)
+```
+
+```{r explore_data, eval = FALSE}
+
+```
+
+
+```{r clean_data}
+
+```
+
+
+## Introduction
+
+This document summarizes three key technical skills we learned when working with the Fashion-MNIST project.
+They focus on efficiently preparing, exploring, and visualizing image data within an R-based modeling workflow.
+
+## 1. Challenge: Efficient Sampling for Multiple Model Iterations
+
+### Why it’s difficult:
+
+To evaluate ten models across three sample sizes (500, 1000, 2000) and three random draws each,we needed nine reproducible subsets of the training data. Without automation, this would require repetitive manual code.
+
+### Code Example:
+
+```{r}
+n.values <- c(500, 1000, 2000)
+iterations <- 3
+N_train_raw <- nrow(train_raw)
+
+dev_sets <- list()
+for (n in n.values) {
+dev_sets[[as.character(n)]] <- vector("list", iterations)
+for (k in 1) {
+idx <- sample.int(N_train_raw, size = n, replace = (n >= N_train_raw))
+dev_sets[[as.character(n)]][[k]] <- data.table::copy(train_raw[idx])
+}
+}
+length(dev_sets)
+```
+
+### Result:
+By modularizing the sampling code, we ensured:
+  Consistent data management (dev_sets[[n]][[k]] structure)
+  Easy scalability for additional sizes or repetitions
+This approach is recommended for any multi-model experimentation pipeline.
+
+## 2. Challenge: Cleaning and Structuring Pixel Data
+
+### Why it’s difficult:
+The dataset contains 49 pixel columns (pixel1–pixel49) plus a label.
+Hard-coding column names is easy to caurse errors, we needed a dynamic way to identify pixel variables.
+
+### Code Example:
+```{r}
+pixel_cols <- grep("^pixel", names(train_raw), value = TRUE)
+length(pixel_cols)
+summary(unlist(train_raw[, ..pixel_cols]))
+```
+
+### Result:
+This automated column extraction allows any later data variant (e.g., 28×28 or 14×14) to be processed without code changes. The method supports scalability and reproducibility, which are critical in consulting projects.
+
+## 3. Challenge: Visualizing and Interpreting 7×7 Images
+
+### Why it’s difficult:
+Raw pixel vectors need reshaping before visualization. If the matrix is not transposed and reversed properly, the image would appears mirrored or rotated.
+
+### Code Example:
+```{r}
+set.seed(42)
+i <- sample.int(nrow(train_raw), 1)
+
+px <- as.numeric(train_raw[i, -1])
+mat <- matrix(px, nrow = 7, ncol = 7, byrow = TRUE)
+mat <- t(apply(mat, 2, rev))
+
+image(
+  mat,
+  col = gray.colors(256, start = 1, end = 0),
+  axes = FALSE,
+  main = paste("Label:", train_raw$label[i])
+)
+```
+
+### Result:
+Proper reshaping ensures that grayscale images display correctly, this is essential for visual sanity checks before modeling. Future consultants should always verify image orientation when working with flattened pixel data.
+
+## Recommendations for Future Consultants
+1. Modularize early: Wrap repeated steps (sampling, normalization, timing) into small reusable functions to ensure consistency and reproducibility.
+2. Use dynamic column detection: Identify pixel columns programmatically (grep("^pixel")) instead of hard-coding names.
+3. Verify image orientation: Always visualize a few samples after reshaping to confirm pixels are correctly displayed.
+4. Log seeds and runtimes: Record random seeds, runtime, and package versions to make experiments comparable and traceable.
+
+## Summary
+This project hilighted that data preparation discipline increases model reliability. Automating sampling, dynamically managing pixel data, and visually validating images made our workflow both efficient and reproducible.
+Future consultants can replicate and extend these methods, ensuring modeling results remain accurate, interpretable, and ready for client delivery.
